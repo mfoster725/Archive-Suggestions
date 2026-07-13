@@ -549,10 +549,8 @@ This approach ensures that:
   - **Structured output schema** — `winConditionId` (deck-wide) + `strategyId` per
     Primary/Secondary/Tertiary slot (decisions #21–22). Win-condition wizard placement
     conditional on deck size (decision #23). Role-weight adjustments still TBD.
-  - **"Sufficient cards" threshold** — how many cards before analyze-first win-condition
-    path kicks in (decision #23). See interview question #24.
   - **Deck analysis observations** — what signals does the system surface before asking
-    questions? (archetype detection, tag clustering, etc.)
+    questions on the ≥80-card analyze-first path (decision #24)? See interview question #25.
   - **Experience-level branching** — exact question sets per Beginner/Intermediate/Advanced.
   - **Multiple-choice option catalog** — separate strategy/archetype and win-condition
     category lists for v1; "Show More Options" expansion set. Shaped by decisions #20–21.
@@ -604,6 +602,7 @@ user-confirmed answer; do not reinterpret without confirmation.
 | 22 | With Primary/Secondary/Tertiary plan slots, how does win condition apply? | **A — Once per deck** — win condition asked once for the whole deck; Primary/Secondary/Tertiary are strategy/archetype only. | Single `winConditionId` on the deck plan object. Plan slots hold strategy IDs only. Scoring/backfill: one win method gates all strategies; hybrid decks express multiple strategies under one win condition. |
 | 23 | When in the wizard should the win-condition question appear? | **Conditional — D then A:** If sufficient deck data exists → analyze deck first, surface observations, then ask win condition with suggestions informed by analysis (user can correct). If insufficient data → ask win condition **before any strategy** (mission-statement-first, option A). | Two wizard paths for win-condition placement. Analyze-first path pre-suggests win condition from deck heuristics; questions-first path leads with win condition. Both paths then proceed to strategy/archetype slots. "Sufficient cards" threshold — see interview question #24. |
 | 24 | At how many cards does the analyze-first path kick in? | **D — 80 cards** | Decks with ≥80 cards: analyze → observations → informed win-condition question. Decks with &lt;80 cards: win condition before any strategy. Threshold is a named constant in wizard logic. |
+| 25 | On the ≥80-card analyze-first path, what to show before asking win condition? | **D — Correctable observation chips** — each inference (win condition, strategies, archetype, etc.) shown as a chip the user confirms, corrects, or skips before proceeding to formal questions. | Analyze-first UX: deterministic inferences rendered as chips; user input authoritative per design decision #9. Chip set likely includes win condition, strategy/archetype, and existing archetype detection output. Formal question phase behavior relative to chips — see interview question #26. |
 
 **Design philosophy summary:** ensure the deck is fundamentally healthy first, then help
 make it uniquely *this* deck. Functional roles are essential; Plan gives personality. The
