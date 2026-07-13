@@ -168,15 +168,11 @@ This approach ensures that:
   explicitly the absence of a role tag, so whatever identifies "the deck's plan" has to
   be a different signal than the existing ~36 utility role tags.
 - Open questions:
-  - **Primary blocker:** how should the system identify a deck's actual plan? Entry 13
-    (2026-07-13) is scoped as a **guided wizard + deterministic algorithm** — structured
-    intake and rule-based inference only, no runtime AI — see entry 13 design decisions.
-    Remaining candidates for inference-only path: existing archetype detection (may be too
-    coarse), deck-analysis heuristics surfaced by the wizard's "sufficient cards" path.
-    Not yet confirmed which signals are sufficient or how declared vs inferred plan
-    combine — entry 5 stays blocked until entry 13's output schema is settled.
-  - Once deck-plan identification is scoped: what should the unowned Plan backfill
-    actually filter/rank by?
+  - **Plan identification:** largely resolved by Entry 13 interview (#20–30) — declared
+    `winConditionId` + strategy IDs; analyze-first path for ≥80 cards. Entry 5 implements
+    against Entry 13 v1 schema.
+  - **Plan backfill filter/rank:** filter/rank by declared **strategy + win condition**
+    (interview #30 v1 scope). Exact tag/heuristic mapping TBD in implementation prompt.
   - Still need a concrete example deck to confirm the "no suggestions" symptom in
     practice.
 
@@ -611,8 +607,9 @@ user-confirmed answer; do not reinterpret without confirmation.
 | 28 | How should wizard-declared plan interact with existing archetype detection? | **A — Override** — declared plan replaces archetype for recipe/scoring adjustments. | When user completes wizard plan intake, declared plan (win condition + strategies) supersedes detected/overridden archetype for recipe threshold and scoring weight adjustments. Archetype detection may still seed inference chips on analyze-first path, but declared plan wins. Refines entry constraint "complement archetype" for post-wizard runtime behavior. |
 | 29 | Should Cuts use declared plan in v1? | **C — Cuts deferred to v2** — schema supports plan-aware Cuts later; no Cuts scoring changes in v1. | v1 scope: Adds + Plan backfill (entry 5) + wizard intake only. Plan schema should include fields/hooks for future Cuts shielding (e.g. strategy-aligned cards). Entry 13 side remains Adds-primary for v1 implementation. |
 | 30 | v1 scoring integration — how does declared plan affect Adds first? | **D — Phased** (agent recommendation accepted): **v1 = B** (equal-weight Plan role + plan-aware Plan backfill); **v2 = A** (hybrid bounded role-weight modifiers per #27). See **v1 / v2 scope** below. | **v1 ships:** wizard + schema; equal-weight Plan deficit in Adds; plan-aware Plan backfill (unblocks entry 5); declared plan overrides archetype for plan-related recipe/backfill paths; schema hooks for v2. **v2 required:** hybrid role-weight nudges (#27), Cuts plan-awareness (#29), and any deferred catalog depth. v1 alone is **not** the final scoring model. |
+| 31 | v1 strategy/archetype catalog scope? | **C + dynamic caveat** — minimal **~5–6 primary** options (not a fixed global list); full catalog via "Show More Options." **≥80 cards:** top 5–6 ranked by **deck analysis**. **&lt;80 cards:** user confirms **commander** first (if not already set); top 5–6 ranked by **commander affinity** lookup. **Win condition** picker gets the **same dynamic treatment** (analysis or commander). User confirmed 2026-07-13. | v1 wizard needs: `rankStrategiesForDeck`, `rankStrategiesForCommander`, `rankWinConditionsForDeck`, `rankWinConditionsForCommander`; commander confirmation step on &lt;80 path before plan questions; static fallback primary list when confidence low. Feasibility for v1 — see interview note below #31 in **v1 / v2 scope**. |
 
-#### v1 / v2 scope (Entry 13 — user-confirmed via interview #29–30)
+#### v1 / v2 scope (Entry 13 — user-confirmed via interview #29–31)
 
 **v1 deliverables (Fix scoped target):**
 - Guided plan wizard (decisions #20–26): structured intake, chips on ≥80-card decks,
