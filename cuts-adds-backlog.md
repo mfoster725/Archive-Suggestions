@@ -559,10 +559,12 @@ This approach ensures that:
   - **Experience-level branching** — exact question sets per Beginner/Intermediate/Advanced.
   - **Multiple-choice option catalog** — separate strategy/archetype and win-condition
     category lists for v1; "Show More Options" expansion set. Shaped by decisions #20–21.
-  - **Dynamic role weighting vs equal-weight Plan fallback** — which path is feasible for
-    v1 once schema is mapped to scoring?
+  - **Dynamic role weighting vs equal-weight Plan fallback** — ideal behavior decided:
+    hybrid nudges with veggies-first preserved (interview #27). v1 implementation path
+    (hybrid modifiers vs equal-weight fallback) still TBD as a separate implementation
+    question.
   - How does declared plan interact with archetype detection — override, inform, or run
-    alongside?
+    alongside? See interview question #28.
   - Should Cuts also become plan-aware (e.g. don't suggest cutting a card that's core to a
     declared secondary **strategy** even if its role-tag surplus looks cuttable)?
   - Optional free-text notes for display only — if ever added, must not affect scoring
@@ -610,6 +612,7 @@ user-confirmed answer; do not reinterpret without confirmation.
 | 25 | On the ≥80-card analyze-first path, what to show before asking win condition? | **D — Correctable observation chips** — each inference (win condition, strategies, archetype, etc.) shown as a chip the user confirms, corrects, or skips before proceeding to formal questions. | Analyze-first UX: deterministic inferences rendered as chips; user input authoritative per design decision #9. Chip set likely includes win condition, strategy/archetype, and existing archetype detection output. Formal question phase behavior relative to chips — see interview question #26. |
 | 26 | After observation chips, what happens in the formal question phase? | **B + pre-fill on skipped** — confirmed or corrected chip **skips** the corresponding formal question; skipped or missing chip **runs** the formal question, **pre-filled** from inference when available. **UX guardrail:** chip **Correct** opens the **same** multiple-choice picker as the formal question (including "Show More Options"). **Always editable:** user can go back and change any prior answer at any point (back button, arrow, or equivalent). | Per-field intake state: `chip-confirmed`, `chip-corrected`, `formal`, or `skipped→formal`. Chip correction and formal questions share one picker component/catalog. Back navigation reopens any field without losing later progress. |
 | 27 | Ideally, how should declared plan influence functional role priorities? | **C — Hybrid** — plan nudges role weights modestly; "eat your veggies first" ordering always preserved (functional deficits always outrank plan enhancements). | Conceptual scoring model: plan-derived modifiers adjust recipe/threshold weights within bounds; deficit priority queue unchanged. v1 implementation may still use equal-weight Plan fallback if hybrid modifiers are too complex — see separate implementation question when ready. Confirms design decision #13 ideal in user interview. |
+| 28 | How should wizard-declared plan interact with existing archetype detection? | **A — Override** — declared plan replaces archetype for recipe/scoring adjustments. | When user completes wizard plan intake, declared plan (win condition + strategies) supersedes detected/overridden archetype for recipe threshold and scoring weight adjustments. Archetype detection may still seed inference chips on analyze-first path, but declared plan wins. Refines entry constraint "complement archetype" for post-wizard runtime behavior. |
 
 **Design philosophy summary:** ensure the deck is fundamentally healthy first, then help
 make it uniquely *this* deck. Functional roles are essential; Plan gives personality. The
