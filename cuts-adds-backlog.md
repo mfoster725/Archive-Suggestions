@@ -544,8 +544,10 @@ This approach ensures that:
     corrections) — never free-text → LLM parse.
   - User can navigate **back** to edit any prior wizard answer at any time (back button,
     arrow, or equivalent); intake is never write-once.
-  - Should complement, not replace, archetype + deck-analysis inference — declared plan
-    takes precedence over inferred plan when present; user corrections are authoritative.
+  - Should complement, not replace, archetype + deck-analysis inference for **pre-wizard
+    inference** — declared plan takes precedence over inferred plan when present; user
+    corrections are authoritative. **Post-wizard:** declared plan **overrides** archetype
+    for recipe/scoring (interview #28).
   - Do not implement until the plan output schema is settled enough for entry 5 and
     scoring to consume through a shared downstream interface.
   - Entry 13 does not redesign entries 7/9/10/11/12 scoring terms.
@@ -563,8 +565,9 @@ This approach ensures that:
     hybrid nudges with veggies-first preserved (interview #27). v1 implementation path
     (hybrid modifiers vs equal-weight fallback) still TBD as a separate implementation
     question.
-  - How does declared plan interact with archetype detection — override, inform, or run
-    alongside? See interview question #28.
+  - How does declared plan interact with archetype detection — **decided:** declared plan
+    overrides archetype for recipe/scoring once set (interview #28). Archetype may still
+    feed analyze-first inference chips.
   - Should Cuts also become plan-aware (e.g. don't suggest cutting a card that's core to a
     declared secondary **strategy** even if its role-tag surplus looks cuttable)?
   - Optional free-text notes for display only — if ever added, must not affect scoring
@@ -613,6 +616,7 @@ user-confirmed answer; do not reinterpret without confirmation.
 | 26 | After observation chips, what happens in the formal question phase? | **B + pre-fill on skipped** — confirmed or corrected chip **skips** the corresponding formal question; skipped or missing chip **runs** the formal question, **pre-filled** from inference when available. **UX guardrail:** chip **Correct** opens the **same** multiple-choice picker as the formal question (including "Show More Options"). **Always editable:** user can go back and change any prior answer at any point (back button, arrow, or equivalent). | Per-field intake state: `chip-confirmed`, `chip-corrected`, `formal`, or `skipped→formal`. Chip correction and formal questions share one picker component/catalog. Back navigation reopens any field without losing later progress. |
 | 27 | Ideally, how should declared plan influence functional role priorities? | **C — Hybrid** — plan nudges role weights modestly; "eat your veggies first" ordering always preserved (functional deficits always outrank plan enhancements). | Conceptual scoring model: plan-derived modifiers adjust recipe/threshold weights within bounds; deficit priority queue unchanged. v1 implementation may still use equal-weight Plan fallback if hybrid modifiers are too complex — see separate implementation question when ready. Confirms design decision #13 ideal in user interview. |
 | 28 | How should wizard-declared plan interact with existing archetype detection? | **A — Override** — declared plan replaces archetype for recipe/scoring adjustments. | When user completes wizard plan intake, declared plan (win condition + strategies) supersedes detected/overridden archetype for recipe threshold and scoring weight adjustments. Archetype detection may still seed inference chips on analyze-first path, but declared plan wins. Refines entry constraint "complement archetype" for post-wizard runtime behavior. |
+| 29 | Should Cuts use declared plan in v1? | **C — Cuts deferred to v2** — schema supports plan-aware Cuts later; no Cuts scoring changes in v1. | v1 scope: Adds + Plan backfill (entry 5) + wizard intake only. Plan schema should include fields/hooks for future Cuts shielding (e.g. strategy-aligned cards). Entry 13 side remains Adds-primary for v1 implementation. |
 
 **Design philosophy summary:** ensure the deck is fundamentally healthy first, then help
 make it uniquely *this* deck. Functional roles are essential; Plan gives personality. The
