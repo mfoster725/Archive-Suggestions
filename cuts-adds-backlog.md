@@ -546,15 +546,19 @@ This approach ensures that:
     scoring to consume through a shared downstream interface.
   - Entry 13 does not redesign entries 7/9/10/11/12 scoring terms.
 - Open questions:
-  - **Structured output schema** — what exact fields does scoring need? (primary/secondary/
-    tertiary plan tags, win-condition category, role-weight adjustments, etc.) Still TBD.
+  - **Structured output schema** — what exact fields does scoring need beyond
+    strategy/archetype IDs in primary/secondary/tertiary slots? (role-weight adjustments,
+    etc.) Partially narrowed by interview decision #20.
+  - **Win condition** — now that plan = strategy/archetype (decision #20), should win
+    condition be captured separately, inferred only, or omitted? See next interview question.
   - **"Sufficient cards" threshold** — how many cards before deck-analysis-first path kicks
     in?
   - **Deck analysis observations** — what signals does the system surface before asking
     questions? (archetype detection, tag clustering, etc.)
   - **Experience-level branching** — exact question sets per Beginner/Intermediate/Advanced.
-  - **Multiple-choice option catalog** — what plan categories/synergies/win conditions ship
-    in v1? "Show More Options" expansion set.
+  - **Multiple-choice option catalog** — which strategy/archetype categories ship in v1?
+    "Show More Options" expansion set. (Win-condition catalog no longer primary axis per
+    decision #20.)
   - **Dynamic role weighting vs equal-weight Plan fallback** — which path is feasible for
     v1 once schema is mapped to scoring?
   - How does declared plan interact with archetype detection — override, inform, or run
@@ -591,6 +595,14 @@ AI to write the code; the shipped product must not use AI at runtime.
 | 17 | **Don't redesign scoring algorithm** — entries 7/9/10/11/12 already govern multi-role weighting; Entry 13 feeds them better plan data |
 | 18 | **Rethink original Entry 13** — natural language + LLM parse is rejected; wizard is the structured data source |
 | 19 | **Algorithm, not AI product** — deterministic rules/formulas end-to-end; coding agents write the code, but runtime must not use LLM or other AI inference |
+
+#### Design interview decisions (2026-07-13 — user-confirmed)
+Iterative design interview per "Design interview methodology" above. Each row is one
+user-confirmed answer; do not reinterpret without confirmation.
+
+| # | Question | Answer | Design implication |
+|---|----------|--------|-------------------|
+| 20 | When the wizard asks for **Primary plan**, what kind of thing is the user identifying? | **A — Deck strategy / archetype** (e.g. Tokens, Sacrifice, Spellslinger, Reanimator, Voltron, Landfall) | Wizard multiple-choice catalog is strategy/archetype categories. Schema stores strategy IDs in Primary/Secondary/Tertiary plan slots. Plan backfill and scoring consume strategy identity, not a separate win-condition axis. |
 
 **Design philosophy summary:** ensure the deck is fundamentally healthy first, then help
 make it uniquely *this* deck. Functional roles are essential; Plan gives personality. The
