@@ -149,9 +149,10 @@ This approach ensures that:
 - Open questions: none
 
 ### 5. Plan-only-deficit decks never fetch unowned cards
-- Status: Needs investigation — **direction decided, but blocked on a new prerequisite**
-  (deck-plan identification, tracked as entry 13). Do not advance to Fix scoped until
-  that prerequisite is resolved.
+- Status: Needs investigation — **direction decided**; **blocked on Entry 13 v1** (wizard +
+  plan schema + plan-aware backfill per interview #30). Entry 13 design interview largely
+  settled plan identification; advance entry 5 to Fix scoped once Entry 13 v1 is Fix
+  scoped and option catalog is defined.
 - Side: Adds
 - Symptom: likely explains "no suggestions" / "same suggestions forever" complaints —
   need a concrete example deck to confirm
@@ -486,7 +487,7 @@ This approach ensures that:
   interview in progress (see "Design interview methodology" above). Not yet Fix scoped.
   Supersedes the original "natural language + LLM parse" direction as the primary
   implementation path (see Design decisions below).
-- Side: Adds (primary), potentially Cuts
+- Side: Adds (primary); Cuts plan-awareness deferred to v2 (interview #29)
 - Symptom: n/a — feature request. Currently "Plan" has no positive definition; the app
   has no way for the user to directly state a deck's actual gameplan/win condition. This
   blocks meaningful Plan-aware backfill (entry 5) and Plan-aware Cuts scoring.
@@ -528,9 +529,8 @@ This approach ensures that:
     deficiencies, then (2) plan enhancements. Functional priorities use baseline
     deck-building principles, adjusted by Plan and user preferences.
   - Ideal: Plan influences weighting of other roles (e.g. sacrifice deck values cards
-    differently than control). Acceptable v1 fallback if dynamic weighting is too complex:
-    treat Plan as another role with equal weight (implementation constraint, not conceptual
-    goal).
+    differently than control). **v1 ships equal-weight Plan role only**; hybrid modifiers
+    are **v2** (interview #30). See **v1 / v2 scope** under design interview decisions.
   - Recommendations organized by priority; when a card satisfies multiple roles, UI should
     explain those roles.
   - **Do not redesign** the multi-role scoring algorithm (entries 7, 9, 10, 11, 12) —
@@ -552,24 +552,17 @@ This approach ensures that:
     scoring to consume through a shared downstream interface.
   - Entry 13 does not redesign entries 7/9/10/11/12 scoring terms.
 - Open questions:
-  - **Structured output schema** — `winConditionId` (deck-wide) + `strategyId` per
-    Primary/Secondary/Tertiary slot (decisions #21–22). Win-condition wizard placement
-    conditional on deck size (decision #23). Role-weight adjustments still TBD.
-  - **Deck analysis observations** — correctable inference chips on ≥80-card path (decision
-    #25). Chip → formal question handoff and shared picker (decision #26). Always-editable
-    back navigation (decision #26).
+  - **Structured output schema** — largely settled: `winConditionId` + per-slot `strategyId`
+    (#21–22); v1 scoring = equal-weight Plan (#30); schema must include v2 hooks for hybrid
+    modifiers and Cuts shielding.
+  - **Deck analysis observations** — settled (#25–26).
   - **Experience-level branching** — exact question sets per Beginner/Intermediate/Advanced.
   - **Multiple-choice option catalog** — separate strategy/archetype and win-condition
-    category lists for v1; "Show More Options" expansion set. Shaped by decisions #20–21.
-  - **Dynamic role weighting vs equal-weight Plan fallback** — ideal behavior decided:
-    hybrid nudges with veggies-first preserved (interview #27). v1 implementation path
-    (hybrid modifiers vs equal-weight fallback) still TBD as a separate implementation
-    question.
-  - How does declared plan interact with archetype detection — **decided:** declared plan
-    overrides archetype for recipe/scoring once set (interview #28). Archetype may still
-    feed analyze-first inference chips.
-  - Should Cuts also become plan-aware (e.g. don't suggest cutting a card that's core to a
-    declared secondary **strategy** even if its role-tag surplus looks cuttable)?
+    category lists for v1; "Show More Options" expansion set.
+  - **Scoring integration** — v1/v2 split decided (#30): v1 equal-weight Plan +
+    plan-aware backfill; **v2 hybrid modifiers (#27) and Cuts (#29) still required.**
+  - How does declared plan interact with archetype — **decided** (#28).
+  - Cuts plan-awareness — **decided:** v2 (#29).
   - Optional free-text notes for display only — if ever added, must not affect scoring
     unless the user also selects the equivalent structured wizard option (no LLM bridge).
 
@@ -617,6 +610,29 @@ user-confirmed answer; do not reinterpret without confirmation.
 | 27 | Ideally, how should declared plan influence functional role priorities? | **C — Hybrid** — plan nudges role weights modestly; "eat your veggies first" ordering always preserved (functional deficits always outrank plan enhancements). | Conceptual scoring model: plan-derived modifiers adjust recipe/threshold weights within bounds; deficit priority queue unchanged. v1 implementation may still use equal-weight Plan fallback if hybrid modifiers are too complex — see separate implementation question when ready. Confirms design decision #13 ideal in user interview. |
 | 28 | How should wizard-declared plan interact with existing archetype detection? | **A — Override** — declared plan replaces archetype for recipe/scoring adjustments. | When user completes wizard plan intake, declared plan (win condition + strategies) supersedes detected/overridden archetype for recipe threshold and scoring weight adjustments. Archetype detection may still seed inference chips on analyze-first path, but declared plan wins. Refines entry constraint "complement archetype" for post-wizard runtime behavior. |
 | 29 | Should Cuts use declared plan in v1? | **C — Cuts deferred to v2** — schema supports plan-aware Cuts later; no Cuts scoring changes in v1. | v1 scope: Adds + Plan backfill (entry 5) + wizard intake only. Plan schema should include fields/hooks for future Cuts shielding (e.g. strategy-aligned cards). Entry 13 side remains Adds-primary for v1 implementation. |
+| 30 | v1 scoring integration — how does declared plan affect Adds first? | **D — Phased** (agent recommendation accepted): **v1 = B** (equal-weight Plan role + plan-aware Plan backfill); **v2 = A** (hybrid bounded role-weight modifiers per #27). See **v1 / v2 scope** below. | **v1 ships:** wizard + schema; equal-weight Plan deficit in Adds; plan-aware Plan backfill (unblocks entry 5); declared plan overrides archetype for plan-related recipe/backfill paths; schema hooks for v2. **v2 required:** hybrid role-weight nudges (#27), Cuts plan-awareness (#29), and any deferred catalog depth. v1 alone is **not** the final scoring model. |
+
+#### v1 / v2 scope (Entry 13 — user-confirmed via interview #29–30)
+
+**v1 deliverables (Fix scoped target):**
+- Guided plan wizard (decisions #20–26): structured intake, chips on ≥80-card decks,
+  shared picker, always-editable back navigation.
+- Plan schema: `winConditionId` (deck-wide) + `strategyId` per Primary/Secondary/Tertiary
+  slot; hooks reserved for v2 (hybrid modifiers, Cuts shielding).
+- **Adds scoring (v1):** equal-weight Plan role — Plan deficits compete at the same tier as
+  functional roles; no hybrid role-weight nudges yet.
+- **Plan backfill (entry 5):** filter/rank unowned Plan candidates by declared strategy +
+  win condition (not generic untagged cards).
+- **Archetype (v1):** declared plan overrides archetype for plan-related recipe/backfill
+  once wizard intake is complete (#28); archetype still feeds analyze-first inference chips.
+
+**v2 follow-up work (explicitly out of v1 — do not skip documenting):**
+- **Hybrid role-weight modifiers** (interview #27): bounded plan-derived nudges to
+  functional role weights; veggies-first priority ordering preserved.
+- **Cuts plan-awareness** (interview #29): shield or penalize cuts against cards core to
+  declared strategies; schema hooks laid in v1.
+- Deeper option catalogs, experience-level branching refinements, and calibration passes as
+  needed once v1 is live.
 
 **Design philosophy summary:** ensure the deck is fundamentally healthy first, then help
 make it uniquely *this* deck. Functional roles are essential; Plan gives personality. The
