@@ -11,6 +11,12 @@ behavior is just as legitimate an entry as a bug.
 `cuts-adds-archive.md`, referenced here by ID with a one-line summary. Pull the archive
 into context only if an entry needs to be re-litigated.
 
+**Partner knowledge layer (WIP, not done):** See
+[`partner-knowledge-layer-phases.md`](./partner-knowledge-layer-phases.md). Partner is
+building card-axis extraction + Phases 3–5 (interactions → goals → recommender). That work
+**complements** this backlog's Suggested Adds/Cuts improvements; it is not shipped and is
+not a ready-prompt queue item here.
+
 ## Note for coding agents (read this first)
 
 **This project builds a deterministic algorithm, not an AI product.**
