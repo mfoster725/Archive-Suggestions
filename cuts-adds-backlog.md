@@ -45,6 +45,57 @@ for coding agents"). A prompt built from an entry should include:
 - A verification step: how to confirm the fix actually worked (e.g. "recompute score for
   test deck X, confirm curve bonus now factors in commander CMC")
 
+When Status reaches **Prompt drafted**, add the copy-paste prompt to
+`cuts-adds-ready-prompts.md` in **implementation order** (that file is the handoff queue for
+partners). Keep detailed design notes in this backlog; keep only the runnable prompt in the
+ready-prompts doc.
+
+## Design interview methodology (for future planning sessions)
+
+When working through an unscoped feature (such as Entry 13), do not jump straight to
+proposing a design or implementation. Instead, use an iterative design interview with the
+user.
+
+The preferred workflow is:
+
+1. Ask one focused design question at a time.
+   - Keep questions small and independent.
+   - Avoid bundling multiple unrelated decisions into one question.
+   - When appropriate, present 3–5 clearly labeled options (A, B, C, D, etc.) that
+     represent realistic design alternatives rather than leading the user toward one answer.
+2. After the user answers:
+   - Record exactly what they decided.
+   - Do not reinterpret their answer into something broader without confirmation.
+   - If their answer is ambiguous, ask a clarifying follow-up before proceeding.
+3. Then explain your interpretation by separating it into two parts:
+   - **Reasoning inferred:** What you believe motivated the user's decision. Clearly
+     identify this as an inference, not a fact.
+   - **Design implication:** What concrete behavior, architecture, UX, or scoring change
+     should result from that decision.
+4. Treat each answer as building on previous answers.
+   - Do not revisit settled decisions unless they conflict with a newer one.
+   - Use earlier decisions as constraints on future questions.
+5. If you discover that a question has already been answered elsewhere (for example, by
+   an existing backlog entry or previously agreed algorithm), do not ask the user to
+   redesign it. Instead:
+   - Reference the existing decision.
+   - Continue from the next unresolved design question.
+6. Separate conceptual design from implementation constraints.
+   - First determine the ideal behavior.
+   - Then separately discuss implementation feasibility (for example, whether something
+     can be achieved without AI).
+   - Do not let current implementation limitations redefine the intended design.
+7. The objective of the interview is to progressively convert an abstract feature request
+   into a collection of explicit, documented design decisions that can later be translated
+   into implementation work.
+
+This approach ensures that:
+
+- every decision has documented reasoning,
+- future coding agents understand why a decision was made,
+- the user remains the source of truth for product behavior,
+- and implementation prompts can be generated later without re-interviewing the user.
+
 ## Entry template
 ```
 ### [ID] Short title
@@ -103,9 +154,9 @@ for coding agents"). A prompt built from an entry should include:
 - Open questions: none
 
 ### 5. Plan-only-deficit decks never fetch unowned cards
-- Status: Needs investigation — **direction decided, but blocked on a new prerequisite**
-  (deck-plan identification, tracked as entry 13). Do not advance to Fix scoped until
-  that prerequisite is resolved.
+- Status: Needs investigation — **direction decided**; **bundled into Entry 13 v1** (Prompt
+  drafted — see `cuts-adds-ready-prompts.md` Prompt 2). Implement with Entry 13; do not
+  ship Entry 5 alone without plan schema.
 - Side: Adds
 - Symptom: likely explains "no suggestions" / "same suggestions forever" complaints —
   need a concrete example deck to confirm
@@ -121,15 +172,11 @@ for coding agents"). A prompt built from an entry should include:
   explicitly the absence of a role tag, so whatever identifies "the deck's plan" has to
   be a different signal than the existing ~36 utility role tags.
 - Open questions:
-  - **Primary blocker:** how should the system identify a deck's actual plan? Entry 13
-    (2026-07-13) is scoped as a **guided wizard + deterministic algorithm** — structured
-    intake and rule-based inference only, no runtime AI — see entry 13 design decisions.
-    Remaining candidates for inference-only path: existing archetype detection (may be too
-    coarse), deck-analysis heuristics surfaced by the wizard's "sufficient cards" path.
-    Not yet confirmed which signals are sufficient or how declared vs inferred plan
-    combine — entry 5 stays blocked until entry 13's output schema is settled.
-  - Once deck-plan identification is scoped: what should the unowned Plan backfill
-    actually filter/rank by?
+  - **Plan identification:** largely resolved by Entry 13 interview (#20–30) — declared
+    `winConditionId` + strategy IDs; analyze-first path for ≥80 cards. Entry 5 implements
+    against Entry 13 v1 schema.
+  - **Plan backfill filter/rank:** filter/rank by declared **strategy + win condition**
+    (interview #30 v1 scope). Exact tag/heuristic mapping TBD in implementation prompt.
   - Still need a concrete example deck to confirm the "no suggestions" symptom in
     practice.
 
@@ -436,10 +483,13 @@ for coding agents"). A prompt built from an entry should include:
   - ETB-ramp effective-CMC adjustment inside L — needed or does B alone suffice?
 
 ### 13. User-declared deck plan (guided wizard intake)
-- Status: **Needs investigation** — design decisions captured (2026-07-13); not yet Fix
-  scoped. Supersedes the original "natural language + LLM parse" direction as the primary
+- Status: **Prompt drafted** (2026-07-13) — v1 ready for partner implementation. **Runnable
+  prompt:** Prompt 2 in [`cuts-adds-ready-prompts.md`](./cuts-adds-ready-prompts.md) (also
+  [`entry-13-v1-implementation-prompt.md`](./entry-13-v1-implementation-prompt.md)). Run in
+  main app repo after Prompt 1 when possible. Do not execute until user says start.
+  Supersedes the original "natural language + LLM parse" direction as the primary
   implementation path (see Design decisions below).
-- Side: Adds (primary), potentially Cuts
+- Side: Adds (primary); Cuts plan-awareness deferred to v2 (interview #29)
 - Symptom: n/a — feature request. Currently "Plan" has no positive definition; the app
   has no way for the user to directly state a deck's actual gameplan/win condition. This
   blocks meaningful Plan-aware backfill (entry 5) and Plan-aware Cuts scoring.
@@ -465,6 +515,8 @@ for coding agents"). A prompt built from an entry should include:
   - Questions primarily multiple-choice, each with a "Show More Options" button; all
     questions skippable.
   - User can correct incorrect analysis conclusions — user input is authoritative.
+  - User can **go back and edit any prior answer at any point** in the wizard (back button,
+    arrow, or equivalent) — plan intake is never write-once.
   - Wizard determines when it has enough info, then offers: "I have what I need to make
     recommendations, but answering more questions can make them stronger." User chooses
     whether to continue; wizard does not auto-stop.
@@ -479,9 +531,8 @@ for coding agents"). A prompt built from an entry should include:
     deficiencies, then (2) plan enhancements. Functional priorities use baseline
     deck-building principles, adjusted by Plan and user preferences.
   - Ideal: Plan influences weighting of other roles (e.g. sacrifice deck values cards
-    differently than control). Acceptable v1 fallback if dynamic weighting is too complex:
-    treat Plan as another role with equal weight (implementation constraint, not conceptual
-    goal).
+    differently than control). **v1 ships equal-weight Plan role only**; hybrid modifiers
+    are **v2** (interview #30). See **v1 / v2 scope** under design interview decisions.
   - Recommendations organized by priority; when a card satisfies multiple roles, UI should
     explain those roles.
   - **Do not redesign** the multi-role scoring algorithm (entries 7, 9, 10, 11, 12) —
@@ -493,29 +544,20 @@ for coding agents"). A prompt built from an entry should include:
     the code; the product does not use AI.
   - Wizard produces structured data directly (multiple choice, skippable questions, user
     corrections) — never free-text → LLM parse.
-  - Should complement, not replace, archetype + deck-analysis inference — declared plan
-    takes precedence over inferred plan when present; user corrections are authoritative.
+  - User can navigate **back** to edit any prior wizard answer at any time (back button,
+    arrow, or equivalent); intake is never write-once.
+  - Should complement, not replace, archetype + deck-analysis inference for **pre-wizard
+    inference** — declared plan takes precedence over inferred plan when present; user
+    corrections are authoritative. **Post-wizard:** declared plan **overrides** archetype
+    for recipe/scoring (interview #28).
   - Do not implement until the plan output schema is settled enough for entry 5 and
     scoring to consume through a shared downstream interface.
   - Entry 13 does not redesign entries 7/9/10/11/12 scoring terms.
 - Open questions:
-  - **Structured output schema** — what exact fields does scoring need? (primary/secondary/
-    tertiary plan tags, win-condition category, role-weight adjustments, etc.) Still TBD.
-  - **"Sufficient cards" threshold** — how many cards before deck-analysis-first path kicks
-    in?
-  - **Deck analysis observations** — what signals does the system surface before asking
-    questions? (archetype detection, tag clustering, etc.)
-  - **Experience-level branching** — exact question sets per Beginner/Intermediate/Advanced.
-  - **Multiple-choice option catalog** — what plan categories/synergies/win conditions ship
-    in v1? "Show More Options" expansion set.
-  - **Dynamic role weighting vs equal-weight Plan fallback** — which path is feasible for
-    v1 once schema is mapped to scoring?
-  - How does declared plan interact with archetype detection — override, inform, or run
-    alongside?
-  - Should Cuts also become plan-aware (e.g. don't suggest cutting a card that's part of
-    the declared secondary win-con even if its role-tag surplus looks cuttable)?
-  - Optional free-text notes for display only — if ever added, must not affect scoring
-    unless the user also selects the equivalent structured wizard option (no LLM bridge).
+  - **v1 catalog + algorithms** — settled in **v1 algorithm spec** below (user approved
+    option A, 2026-07-13). Constants may be tuned during implementation; IDs are stable.
+  - **Repo anchors** — TBD at implementation Step 0 in main app repo (not in this archive).
+  - Optional free-text notes — v2.
 
 #### Design decisions (2026-07-13 chat — design reference, not implementation prompt)
 Captured from a design session (ChatGPT; some context was misunderstood, but decisions
@@ -545,15 +587,318 @@ AI to write the code; the shipped product must not use AI at runtime.
 | 18 | **Rethink original Entry 13** — natural language + LLM parse is rejected; wizard is the structured data source |
 | 19 | **Algorithm, not AI product** — deterministic rules/formulas end-to-end; coding agents write the code, but runtime must not use LLM or other AI inference |
 
+#### Design interview decisions (2026-07-13 — user-confirmed)
+Iterative design interview per "Design interview methodology" above. Each row is one
+user-confirmed answer; do not reinterpret without confirmation.
+
+| # | Question | Answer | Design implication |
+|---|----------|--------|-------------------|
+| 20 | When the wizard asks for **Primary plan**, what kind of thing is the user identifying? | **Revised (2026-07-13): Strategy/archetype AND win condition** — plan dictates how the deck will win. Supersedes initial answer A (strategy only). User cited Marshall Sutcliffe, ["My Most Important Deck-Building Rule"](https://magic.wizards.com/en/news/feature/my-most-important-deck-building-rule-2018-02-08): every deck needs a mission statement combining strategy and win method. | Schema and wizard must capture both dimensions of "plan." Exact intake shape TBD — see interview question #21 (unified mission statement vs separate picks). Plan backfill/scoring should use both strategy identity and win method when ranking/filtering. |
+| 21 | How should the wizard capture strategy + win condition? | **B — Two separate questions** — pick strategy/archetype first, then win condition as a distinct follow-up; both together constitute the plan for that slot. | Wizard uses two question types: strategy/archetype picker and win-condition picker. Schema stores `winConditionId` (deck-wide) plus `strategyId` per Primary/Secondary/Tertiary slot. See #22 for how win condition relates to plan slots. |
+| 22 | With Primary/Secondary/Tertiary plan slots, how does win condition apply? | **A — Once per deck** — win condition asked once for the whole deck; Primary/Secondary/Tertiary are strategy/archetype only. | Single `winConditionId` on the deck plan object. Plan slots hold strategy IDs only. Scoring/backfill: one win method gates all strategies; hybrid decks express multiple strategies under one win condition. |
+| 23 | When in the wizard should the win-condition question appear? | **Conditional — D then A:** If sufficient deck data exists → analyze deck first, surface observations, then ask win condition with suggestions informed by analysis (user can correct). If insufficient data → ask win condition **before any strategy** (mission-statement-first, option A). | Two wizard paths for win-condition placement. Analyze-first path pre-suggests win condition from deck heuristics; questions-first path leads with win condition. Both paths then proceed to strategy/archetype slots. "Sufficient cards" threshold — see interview question #24. |
+| 24 | At how many cards does the analyze-first path kick in? | **D — 80 cards** | Decks with ≥80 cards: analyze → observations → informed win-condition question. Decks with &lt;80 cards: win condition before any strategy. Threshold is a named constant in wizard logic. |
+| 25 | On the ≥80-card analyze-first path, what to show before asking win condition? | **D — Correctable observation chips** — each inference (win condition, strategies, archetype, etc.) shown as a chip the user confirms, corrects, or skips before proceeding to formal questions. | Analyze-first UX: deterministic inferences rendered as chips; user input authoritative per design decision #9. Chip set likely includes win condition, strategy/archetype, and existing archetype detection output. Formal question phase behavior relative to chips — see interview question #26. |
+| 26 | After observation chips, what happens in the formal question phase? | **B + pre-fill on skipped** — confirmed or corrected chip **skips** the corresponding formal question; skipped or missing chip **runs** the formal question, **pre-filled** from inference when available. **UX guardrail:** chip **Correct** opens the **same** multiple-choice picker as the formal question (including "Show More Options"). **Always editable:** user can go back and change any prior answer at any point (back button, arrow, or equivalent). | Per-field intake state: `chip-confirmed`, `chip-corrected`, `formal`, or `skipped→formal`. Chip correction and formal questions share one picker component/catalog. Back navigation reopens any field without losing later progress. |
+| 27 | Ideally, how should declared plan influence functional role priorities? | **C — Hybrid** — plan nudges role weights modestly; "eat your veggies first" ordering always preserved (functional deficits always outrank plan enhancements). | Conceptual scoring model: plan-derived modifiers adjust recipe/threshold weights within bounds; deficit priority queue unchanged. v1 implementation may still use equal-weight Plan fallback if hybrid modifiers are too complex — see separate implementation question when ready. Confirms design decision #13 ideal in user interview. |
+| 28 | How should wizard-declared plan interact with existing archetype detection? | **A — Override** — declared plan replaces archetype for recipe/scoring adjustments. | When user completes wizard plan intake, declared plan (win condition + strategies) supersedes detected/overridden archetype for recipe threshold and scoring weight adjustments. Archetype detection may still seed inference chips on analyze-first path, but declared plan wins. Refines entry constraint "complement archetype" for post-wizard runtime behavior. |
+| 29 | Should Cuts use declared plan in v1? | **C — Cuts deferred to v2** — schema supports plan-aware Cuts later; no Cuts scoring changes in v1. | v1 scope: Adds + Plan backfill (entry 5) + wizard intake only. Plan schema should include fields/hooks for future Cuts shielding (e.g. strategy-aligned cards). Entry 13 side remains Adds-primary for v1 implementation. |
+| 30 | v1 scoring integration — how does declared plan affect Adds first? | **D — Phased** (agent recommendation accepted): **v1 = B** (equal-weight Plan role + plan-aware Plan backfill); **v2 = A** (hybrid bounded role-weight modifiers per #27). See **v1 / v2 scope** below. | **v1 ships:** wizard + schema; equal-weight Plan deficit in Adds; plan-aware Plan backfill (unblocks entry 5); declared plan overrides archetype for plan-related recipe/backfill paths; schema hooks for v2. **v2 required:** hybrid role-weight nudges (#27), Cuts plan-awareness (#29), and any deferred catalog depth. v1 alone is **not** the final scoring model. |
+| 31 | v1 strategy/archetype catalog scope? | **C + dynamic caveat** — minimal **~5–6 primary** options (not a fixed global list); full catalog via "Show More Options." **≥80 cards:** top 5–6 ranked by **deck analysis**. **&lt;80 cards:** user confirms **commander** first (if not already set); top 5–6 ranked by **commander affinity** lookup. **Win condition** picker gets the **same dynamic treatment** (analysis or commander). User confirmed 2026-07-13. | v1 wizard needs: `rankStrategiesForDeck`, `rankStrategiesForCommander`, `rankWinConditionsForDeck`, `rankWinConditionsForCommander`; commander confirmation step on &lt;80 path before plan questions; static fallback primary list when confidence low. Feasibility for v1 — see interview note below #31 in **v1 / v2 scope**. |
+
+#### v1 / v2 scope (Entry 13 — user-confirmed via interview #29–31; feasibility trim 2026-07-13)
+
+**Context:** `main` has Entry 13 design decisions #1–19 (wizard concept, no runtime AI).
+PR #2 adds interview decisions #20–31 and design-interview methodology. v1 below is the
+**feasible MVP** — enough to unblock entry 5 and improve Adds; v2 completes the vision.
+
+##### v1 MVP — ship this (one implementation prompt)
+
+**A. Plan schema & persistence**
+- `winConditionId` (deck-wide, required for wizard completion)
+- `primaryStrategyId` (required for wizard completion)
+- `secondaryStrategyId` (optional, skippable)
+- v2 hooks on schema for: `tertiaryStrategyId`, hybrid modifiers, Cuts shielding
+- Per-field `source` metadata (`chip-*`, `formal`, etc.) for debugging
+
+**B. Wizard — core flow (both paths)**
+- Multiple-choice pickers + "Show More Options" + all questions skippable (#7)
+- Back navigation to edit any prior answer (#26)
+- Two question types: win condition, then strategy (#21–22) — win condition once per deck
+- **&lt;80 cards:** confirm commander if missing → mission-statement-first (#23–24)
+- **≥80 cards:** lightweight deck analysis → **simplified observations** (see C below)
+- **Completion:** wizard done when win condition + primary strategy are set (or user exits
+  early); optional secondary strategy question offered once — no tertiary in v1
+
+**C. Analyze-first path (≥80 cards) — v1 simplified chips**
+- Run deterministic deck analysis (tag clustering / role-tag ratios — reuse existing tags)
+- Show **at most 3 observation chips:** inferred win condition, inferred primary strategy,
+  optional archetype hint
+- Chip behavior per #26: confirm/correct skips formal Q; skip → formal Q pre-filled;
+  Correct uses shared picker
+- **Defer to v2:** chips for secondary/tertiary strategy; rich multi-signal observation panel
+
+**D. Dynamic picker ordering (#31) — v1 pragmatic**
+- Top ~5–6 options ranked before "Show More Options" for **both** strategy and win condition
+- **≥80 cards:** rank from deck-analysis signals (same engine as chips)
+- **&lt;80 cards:** rank from **commander oracle keyword rules** (sacrifice, token, cast, etc.)
+- Full catalog: **~15 strategies + ~8 win conditions** in v1 (not ~30); expand in v2
+- **Static fallback** primary list when confidence low (always show something sensible)
+- **Defer to v2:** curated explicit commander→affinity table for top 200+ commanders;
+  win-condition inference accuracy tuning
+
+**E. Adds integration — the v1 payoff**
+- **Equal-weight Plan role** in Adds scoring (#30) — no hybrid role nudges
+- **Plan-aware backfill** (unblocks entry 5): allow unowned fetch on Plan-only deficits;
+  filter/rank by declared `winConditionId` + `primaryStrategyId` (+ `secondaryStrategyId`
+  when set)
+- Declared plan **overrides archetype** for plan-related backfill/filter paths only (#28) —
+  do not rewrite full recipe engine in v1
+
+**F. Explicitly out of v1**
+- Hybrid role-weight modifiers (#27)
+- Cuts plan-awareness (#29)
+- Experience-level branching (#3 — Beginner/Intermediate/Advanced): **single wording in v1**
+- Tertiary strategy slot
+- Optional free-text plan notes
+- Multi-role recommendation explanations in UI (#16)
+- Full "answer more for stronger recommendations" continue loop (#8) — v1: simple Done +
+  optional secondary strategy step
+
+##### v2 — required follow-up (documented, not optional polish)
+
+| Area | v2 work |
+|------|---------|
+| **Scoring** | Hybrid bounded role-weight modifiers (#27); veggies-first preserved |
+| **Cuts** | Plan-aware shielding for strategy-aligned cards (#29) |
+| **Wizard depth** | Tertiary strategy; experience-level branching; richer completion/continue UX (#8) |
+| **Analysis UX** | More observation chips; secondary/tertiary inference; calibration |
+| **Catalogs** | Expand to ~30+ strategies; commander explicit-affinity table; ranking tuning |
+| **Presentation** | Multi-role card explanations (#16); optional display-only notes |
+
+##### Suggested implementation order (v1)
+
+1. Schema + persistence
+2. Minimal wizard (&lt;80 path first — commander → win con → primary strategy)
+3. Plan-aware backfill (entry 5) — **validate payoff early**
+4. ≥80 analysis + simplified chips + dynamic picker ordering
+5. Secondary strategy (optional step) + archetype override for backfill
+
+**v1 deliverables (Fix scoped target):** See **v1 MVP** bullets A–F above (feasibility
+trim 2026-07-13). Algorithm detail in **v1 algorithm spec** below.
+
+#### v1 algorithm spec (Fix scoped — agent draft approved 2026-07-13)
+
+##### Named constants
+
+| Constant | Value | Notes |
+|----------|-------|-------|
+| `PLAN_WIZARD_ANALYZE_THRESHOLD` | `80` | Interview #24 |
+| `PLAN_PRIMARY_OPTIONS_COUNT` | `6` | Top options before "Show More Options" |
+| `PLAN_INFERENCE_CONFIDENCE_MIN` | `0.35` | Below → static fallback / no chip pre-fill |
+| `PLAN_CHIP_MAX` | `3` | Win con, primary strategy, archetype hint |
+| `PLAN_TAG_SIGNAL_WEIGHT` | `1.0` | Per matching deck tag signal |
+| `PLAN_ORACLE_SIGNAL_WEIGHT` | `0.5` | Per commander oracle keyword hit (cap 3 hits/category) |
+
+##### v1 strategy catalog (15 — stable IDs)
+
+| ID | Label |
+|----|-------|
+| `strategy.tokens` | Tokens / Go-wide |
+| `strategy.sacrifice` | Sacrifice / Aristocrats |
+| `strategy.spellslinger` | Spellslinger |
+| `strategy.reanimator` | Reanimator / Graveyard |
+| `strategy.voltron` | Voltron / Commander damage |
+| `strategy.counters` | +1/+1 Counters |
+| `strategy.landfall` | Landfall |
+| `strategy.tribal` | Tribal |
+| `strategy.artifacts` | Artifacts |
+| `strategy.enchantress` | Enchantress |
+| `strategy.control` | Control / Value grind |
+| `strategy.blink` | Blink / ETB value |
+| `strategy.superfriends` | Superfriends |
+| `strategy.theft` | Theft / Steal |
+| `strategy.other` | Other / Hybrid |
+
+**Static fallback primary (6)** when confidence low: `strategy.tokens`, `strategy.sacrifice`,
+`strategy.spellslinger`, `strategy.tribal`, `strategy.control`, `strategy.other`
+
+##### v1 win-condition catalog (8 — stable IDs)
+
+| ID | Label |
+|----|-------|
+| `wincon.combat` | Combat damage (combat wins) |
+| `wincon.commander_damage` | Commander damage |
+| `wincon.combo` | Infinite / instant-win combo |
+| `wincon.mill` | Mill |
+| `wincon.life_drain` | Life drain / life loss |
+| `wincon.lock` | Lock / Stax / hard lock |
+| `wincon.value` | Overwhelming value / grind |
+| `wincon.other` | Other |
+
+**Static fallback primary (5)** when confidence low: `wincon.combat`, `wincon.commander_damage`,
+`wincon.combo`, `wincon.life_drain`, `wincon.value`
+
+##### Commander oracle keyword rules (`rankForCommander`)
+
+Deterministic substring match on commander oracle text (case-insensitive). Each hit adds
+`PLAN_ORACLE_SIGNAL_WEIGHT` to listed strategy or win-condition IDs (cap 3 hits per ID).
+
+**Strategy signals (examples):**
+
+| Keyword / phrase | Boosts |
+|------------------|--------|
+| `sacrifice`, `sacrifices`, `dies` | `strategy.sacrifice` |
+| `token`, `tokens` | `strategy.tokens` |
+| `cast`, `instant`, `sorcery`, `magecraft`, `storm` | `strategy.spellslinger` |
+| `graveyard`, `return` + `graveyard`, `reanimate` | `strategy.reanimator` |
+| `commander damage`, `equipped`, `aura` | `strategy.voltron` |
+| `+1/+1 counter`, `proliferate` | `strategy.counters` |
+| `landfall`, `land enters` | `strategy.landfall` |
+| `tribal`, creature type name repeated in type line context | `strategy.tribal` |
+| `artifact` | `strategy.artifacts` |
+| `enchantment` | `strategy.enchantress` |
+| `counter target`, `draw`, `cannot be countered` | `strategy.control` |
+| `flicker`, `exile` + `return`, `enters the battlefield` | `strategy.blink` |
+| `planeswalker`, `loyalty` | `strategy.superfriends` |
+| `gain control`, `steal` | `strategy.theft` |
+
+**Win-condition signals (weaker in v1 — prefer fallback):**
+
+| Keyword / phrase | Boosts |
+|------------------|--------|
+| `mill`, `library` + `graveyard` | `wincon.mill` |
+| `lose life`, `drain`, `lifelink` | `wincon.life_drain` |
+| `infinite`, `win the game`, `you win` | `wincon.combo` |
+| `can't`, `prevent`, `skip` + `phase` | `wincon.lock` |
+| `commander damage`, `combat damage` | `wincon.commander_damage` / `wincon.combat` |
+
+Return top `PLAN_PRIMARY_OPTIONS_COUNT` by score; if top score &lt; `PLAN_INFERENCE_CONFIDENCE_MIN`,
+use static fallback list.
+
+##### Deck analysis ranking (`rankForDeck`)
+
+For decks with `cardCount >= PLAN_WIZARD_ANALYZE_THRESHOLD`:
+
+1. Build deck signal vector from **role-tag counts** (project tag IDs) and **card-type
+   ratios** (creatures, instants/sorceries, artifacts, enchantments, lands).
+2. For each strategy ID, sum `STRATEGY_DECK_SIGNALS[strategyId]` × signal value ×
+   `PLAN_TAG_SIGNAL_WEIGHT`.
+3. For each win-condition ID, sum `WINCON_DECK_SIGNALS[winconId]` × signal value ×
+   `PLAN_TAG_SIGNAL_WEIGHT` (smaller signal table — v1 uses fewer win-con deck signals).
+4. Normalize scores to 0–1 by dividing by max possible for that catalog.
+5. Return top `PLAN_PRIMARY_OPTIONS_COUNT`; if top &lt; `PLAN_INFERENCE_CONFIDENCE_MIN` →
+   static fallback.
+
+**`STRATEGY_DECK_SIGNALS` (v1 — map to project role-tag IDs at implementation):**
+
+| Strategy ID | Signals (semantic — map to project tags in repo) |
+|-------------|--------------------------------------------------|
+| `strategy.tokens` | token-producing tags, creature tokens, go-wide |
+| `strategy.sacrifice` | sacrifice outlets, dies triggers, aristocrats |
+| `strategy.spellslinger` | instant/sorcery density, cast triggers, prowess |
+| `strategy.reanimator` | recursion, graveyard recursion, reanimate |
+| `strategy.voltron` | equipment, auras, commander-centric |
+| `strategy.counters` | +1/+1 counters, proliferate |
+| `strategy.landfall` | landfall, land recursion |
+| `strategy.tribal` | dominant creature type share &gt; 40% |
+| `strategy.artifacts` | artifact density, artifact synergy tags |
+| `strategy.enchantress` | enchantment density, enchantress tags |
+| `strategy.control` | counterspell, removal, draw density |
+| `strategy.blink` | ETB, flicker |
+| `strategy.superfriends` | planeswalker count |
+| `strategy.theft` | steal, gain control |
+
+**`WINCON_DECK_SIGNALS` (v1 — sparse):**
+
+| Wincon ID | Signals |
+|-----------|---------|
+| `wincon.combat` | high creature count, combat keywords (trample, haste) |
+| `wincon.commander_damage` | voltron signals + commander-centric |
+| `wincon.combo` | tutors + instants, known combo enabler tags |
+| `wincon.mill` | mill cards, library manipulation to opponent GY |
+| `wincon.life_drain` | drain, lifelink, ping |
+| `wincon.lock` | stax, prison, resource denial tags |
+| `wincon.value` | high draw + removal (control grind) |
+
+Chip inference = rank #1 if score ≥ `PLAN_INFERENCE_CONFIDENCE_MIN`; else chip omitted or
+shown as "uncertain" (user must pick).
+
+##### Plan-aware backfill (entry 5 integration)
+
+**Gate change:** allow unowned fetch when largest active deficit is **Plan** AND deck has
+`winConditionId` + `primaryStrategyId` set (wizard complete or user set plan fields).
+
+**Filter:** candidate must be Plan-tagged (no utility role tag) OR explicitly in plan
+candidate pool; must match declared plan via `planMatchScore`:
+
+```
+planMatchScore(card) =
+  strategyMatch(card, primaryStrategyId) * 2
+  + strategyMatch(card, secondaryStrategyId) * 1  // if set
+  + winconMatch(card, winConditionId) * 1
+```
+
+`strategyMatch` / `winconMatch`: 0 or 1+ from `PLAN_BACKFILL_SIGNALS` — oracle keyword /
+type / tag overlap tables keyed by strategy/wincon ID (same vocabulary as commander rules;
+implementation builds lookup from catalog IDs).
+
+**Rank:** sort filtered candidates by `planMatchScore` desc, then existing Adds score
+(equal-weight Plan — no change to deficit formula; planMatchScore only affects ordering
+within Plan backfill pool).
+
+**Archetype:** when plan fields set, do not use archetype for plan backfill path (#28).
+
+##### Schema (v1)
+
+```json
+{
+  "winConditionId": "wincon.life_drain",
+  "primaryStrategyId": "strategy.sacrifice",
+  "secondaryStrategyId": null,
+  "fieldSources": {
+    "winConditionId": "chip-confirmed",
+    "primaryStrategyId": "formal"
+  }
+}
+```
+
+v2 hooks: `tertiaryStrategyId`, `hybridRoleModifiers`, `cutsShielding` — nullable, unused in v1.
+
+##### Verification cases (v1)
+
+| # | Scenario | Expected |
+|---|----------|----------|
+| 1 | ≥80-card sacrifice/aristocrats deck, wizard run | Chips infer `strategy.sacrifice` + `wincon.life_drain` or `wincon.combat` with score ≥ threshold; confirmed chips skip formal Q |
+| 2 | &lt;80 cards, Korvold commander | `strategy.sacrifice` in top 6 from oracle rules |
+| 3 | Plan-only deficit, plan declared | Unowned fetch triggers; results match sacrifice/drain signals not random untagged |
+| 4 | Plan-only deficit, plan **not** declared | No unowned fetch (current behavior) |
+| 5 | Inference score &lt; 0.35 | Static fallback lists shown; no false-confident chip |
+| 6 | User skips chip, formal Q | Pre-filled with inference when score ≥ threshold |
+| 7 | User navigates back | Prior answers editable; schema updates |
+
+---
+
+## Agent prompt: Entry 13 v1 — plan wizard + plan-aware backfill
+
+**Runnable copy:** Prompt **2 of 2** in
+[`cuts-adds-ready-prompts.md`](./cuts-adds-ready-prompts.md)
+(twin: [`entry-13-v1-implementation-prompt.md`](./entry-13-v1-implementation-prompt.md)).
+
+Do **not** move Entry 13 to `cuts-adds-archive.md` until Status reaches **Shipped**.
+
+---
+
 **Design philosophy summary:** ensure the deck is fundamentally healthy first, then help
 make it uniquely *this* deck. Functional roles are essential; Plan gives personality. The
 wizard captures that personality in structured, deterministic form for the existing
 recommendation algorithm — without AI at runtime.
 
 ### Coordinated scoring pass — entries 7 + 9 + 10 + 11 + 12
-- Status: **Prompt drafted** (2026-07-12) — ship as **one agent task**, not five separate
-  PRs. Entries 7, 9, 10, 11, 12 remain individually tracked above; this entry is the
-  integration record and holds the ready-to-copy agent prompt.
+- Status: **Prompt drafted** (2026-07-12) — **Runnable copy:** Prompt **1 of 2** in
+  [`cuts-adds-ready-prompts.md`](./cuts-adds-ready-prompts.md). Ship as **one agent task**,
+  not five separate PRs. Entries 7, 9, 10, 11, 12 remain individually tracked above; this
+  entry is the integration record.
 - Side: Adds (+ server precompute for E)
 - Confirmed cause: spec-level only; repo agent must verify D/V/C formulas and tag IDs
   before editing.
