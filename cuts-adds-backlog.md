@@ -45,6 +45,52 @@ for coding agents"). A prompt built from an entry should include:
 - A verification step: how to confirm the fix actually worked (e.g. "recompute score for
   test deck X, confirm curve bonus now factors in commander CMC")
 
+## Design interview methodology (for future planning sessions)
+
+When working through an unscoped feature (such as Entry 13), do not jump straight to
+proposing a design or implementation. Instead, use an iterative design interview with the
+user.
+
+The preferred workflow is:
+
+1. Ask one focused design question at a time.
+   - Keep questions small and independent.
+   - Avoid bundling multiple unrelated decisions into one question.
+   - When appropriate, present 3–5 clearly labeled options (A, B, C, D, etc.) that
+     represent realistic design alternatives rather than leading the user toward one answer.
+2. After the user answers:
+   - Record exactly what they decided.
+   - Do not reinterpret their answer into something broader without confirmation.
+   - If their answer is ambiguous, ask a clarifying follow-up before proceeding.
+3. Then explain your interpretation by separating it into two parts:
+   - **Reasoning inferred:** What you believe motivated the user's decision. Clearly
+     identify this as an inference, not a fact.
+   - **Design implication:** What concrete behavior, architecture, UX, or scoring change
+     should result from that decision.
+4. Treat each answer as building on previous answers.
+   - Do not revisit settled decisions unless they conflict with a newer one.
+   - Use earlier decisions as constraints on future questions.
+5. If you discover that a question has already been answered elsewhere (for example, by
+   an existing backlog entry or previously agreed algorithm), do not ask the user to
+   redesign it. Instead:
+   - Reference the existing decision.
+   - Continue from the next unresolved design question.
+6. Separate conceptual design from implementation constraints.
+   - First determine the ideal behavior.
+   - Then separately discuss implementation feasibility (for example, whether something
+     can be achieved without AI).
+   - Do not let current implementation limitations redefine the intended design.
+7. The objective of the interview is to progressively convert an abstract feature request
+   into a collection of explicit, documented design decisions that can later be translated
+   into implementation work.
+
+This approach ensures that:
+
+- every decision has documented reasoning,
+- future coding agents understand why a decision was made,
+- the user remains the source of truth for product behavior,
+- and implementation prompts can be generated later without re-interviewing the user.
+
 ## Entry template
 ```
 ### [ID] Short title
@@ -436,8 +482,9 @@ for coding agents"). A prompt built from an entry should include:
   - ETB-ramp effective-CMC adjustment inside L — needed or does B alone suffice?
 
 ### 13. User-declared deck plan (guided wizard intake)
-- Status: **Needs investigation** — design decisions captured (2026-07-13); not yet Fix
-  scoped. Supersedes the original "natural language + LLM parse" direction as the primary
+- Status: **Needs investigation** — design decisions captured (2026-07-13); design
+  interview in progress (see "Design interview methodology" above). Not yet Fix scoped.
+  Supersedes the original "natural language + LLM parse" direction as the primary
   implementation path (see Design decisions below).
 - Side: Adds (primary), potentially Cuts
 - Symptom: n/a — feature request. Currently "Plan" has no positive definition; the app
