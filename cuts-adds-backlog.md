@@ -512,6 +512,8 @@ This approach ensures that:
   - Questions primarily multiple-choice, each with a "Show More Options" button; all
     questions skippable.
   - User can correct incorrect analysis conclusions — user input is authoritative.
+  - User can **go back and edit any prior answer at any point** in the wizard (back button,
+    arrow, or equivalent) — plan intake is never write-once.
   - Wizard determines when it has enough info, then offers: "I have what I need to make
     recommendations, but answering more questions can make them stronger." User chooses
     whether to continue; wizard does not auto-stop.
@@ -540,6 +542,8 @@ This approach ensures that:
     the code; the product does not use AI.
   - Wizard produces structured data directly (multiple choice, skippable questions, user
     corrections) — never free-text → LLM parse.
+  - User can navigate **back** to edit any prior wizard answer at any time (back button,
+    arrow, or equivalent); intake is never write-once.
   - Should complement, not replace, archetype + deck-analysis inference — declared plan
     takes precedence over inferred plan when present; user corrections are authoritative.
   - Do not implement until the plan output schema is settled enough for entry 5 and
@@ -549,8 +553,9 @@ This approach ensures that:
   - **Structured output schema** — `winConditionId` (deck-wide) + `strategyId` per
     Primary/Secondary/Tertiary slot (decisions #21–22). Win-condition wizard placement
     conditional on deck size (decision #23). Role-weight adjustments still TBD.
-  - **Deck analysis observations** — what signals does the system surface before asking
-    questions on the ≥80-card analyze-first path (decision #24)? See interview question #25.
+  - **Deck analysis observations** — correctable inference chips on ≥80-card path (decision
+    #25). Chip → formal question handoff and shared picker (decision #26). Always-editable
+    back navigation (decision #26).
   - **Experience-level branching** — exact question sets per Beginner/Intermediate/Advanced.
   - **Multiple-choice option catalog** — separate strategy/archetype and win-condition
     category lists for v1; "Show More Options" expansion set. Shaped by decisions #20–21.
@@ -558,8 +563,8 @@ This approach ensures that:
     v1 once schema is mapped to scoring?
   - How does declared plan interact with archetype detection — override, inform, or run
     alongside?
-  - Should Cuts also become plan-aware (e.g. don't suggest cutting a card that's part of
-    the declared secondary win-con even if its role-tag surplus looks cuttable)?
+  - Should Cuts also become plan-aware (e.g. don't suggest cutting a card that's core to a
+    declared secondary **strategy** even if its role-tag surplus looks cuttable)?
   - Optional free-text notes for display only — if ever added, must not affect scoring
     unless the user also selects the equivalent structured wizard option (no LLM bridge).
 
@@ -603,6 +608,7 @@ user-confirmed answer; do not reinterpret without confirmation.
 | 23 | When in the wizard should the win-condition question appear? | **Conditional — D then A:** If sufficient deck data exists → analyze deck first, surface observations, then ask win condition with suggestions informed by analysis (user can correct). If insufficient data → ask win condition **before any strategy** (mission-statement-first, option A). | Two wizard paths for win-condition placement. Analyze-first path pre-suggests win condition from deck heuristics; questions-first path leads with win condition. Both paths then proceed to strategy/archetype slots. "Sufficient cards" threshold — see interview question #24. |
 | 24 | At how many cards does the analyze-first path kick in? | **D — 80 cards** | Decks with ≥80 cards: analyze → observations → informed win-condition question. Decks with &lt;80 cards: win condition before any strategy. Threshold is a named constant in wizard logic. |
 | 25 | On the ≥80-card analyze-first path, what to show before asking win condition? | **D — Correctable observation chips** — each inference (win condition, strategies, archetype, etc.) shown as a chip the user confirms, corrects, or skips before proceeding to formal questions. | Analyze-first UX: deterministic inferences rendered as chips; user input authoritative per design decision #9. Chip set likely includes win condition, strategy/archetype, and existing archetype detection output. Formal question phase behavior relative to chips — see interview question #26. |
+| 26 | After observation chips, what happens in the formal question phase? | **B + pre-fill on skipped** — confirmed or corrected chip **skips** the corresponding formal question; skipped or missing chip **runs** the formal question, **pre-filled** from inference when available. **UX guardrail:** chip **Correct** opens the **same** multiple-choice picker as the formal question (including "Show More Options"). **Always editable:** user can go back and change any prior answer at any point (back button, arrow, or equivalent). | Per-field intake state: `chip-confirmed`, `chip-corrected`, `formal`, or `skipped→formal`. Chip correction and formal questions share one picker component/catalog. Back navigation reopens any field without losing later progress. |
 
 **Design philosophy summary:** ensure the deck is fundamentally healthy first, then help
 make it uniquely *this* deck. Functional roles are essential; Plan gives personality. The
