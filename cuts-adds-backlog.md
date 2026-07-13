@@ -11,9 +11,32 @@ behavior is just as legitimate an entry as a bug.
 `cuts-adds-archive.md`, referenced here by ID with a one-line summary. Pull the archive
 into context only if an entry needs to be re-litigated.
 
+## Note for coding agents (read this first)
+
+**This project builds a deterministic algorithm, not an AI product.**
+
+- The Cuts/Adds recommendation engine — including Entry 13's deck-plan wizard, plan
+  inference, and all scoring changes — must be implemented as **explicit, deterministic
+  code**: formulas, rules, lookups, precomputed tables, and structured user input.
+- **The shipped feature must not call, depend on, or require any LLM, embedding model,
+  or other AI/ML inference at runtime.** No parsing user text with an LLM, no semantic
+  search, no probabilistic "AI recommendations." Every suggestion must be traceable to
+  named constants, rules, and inputs.
+- **Coding agents are expected to write this code** — that is the appropriate use of AI
+  here. You are the implementation tool; the end product is ordinary application logic
+  that runs without AI.
+- When scoping or implementing any entry: prefer multiple-choice wizard answers, tag/
+  archetype lookups, deck-analysis heuristics, and rule-based weight adjustments. If a
+  proposal would add a runtime AI dependency, **stop and flag it to the user** — it is
+  out of scope unless the user explicitly reopens it.
+- This applies project-wide, not only to Entry 13. Entries 7–12 are formula/constant
+  work. Entry 13 is a structured-intake + deterministic-plan algorithm. Do not substitute
+  "use an LLM to figure out the deck's plan" for either.
+
 ## How an entry becomes a prompt
-Don't draft a fix prompt until an entry reaches **Fix scoped**. A prompt built from an
-entry should include:
+Don't draft a fix prompt until an entry reaches **Fix scoped**. Every prompt must state
+that the deliverable is **deterministic algorithm code with no runtime AI** (see "Note
+for coding agents"). A prompt built from an entry should include:
 - Which file/function, with the current (verified, not assumed) behavior and line anchor
 - The specific defect, described as one term/behavior on one side (Cuts or Adds)
 - The desired behavior change — one term at a time
@@ -98,12 +121,13 @@ entry should include:
   explicitly the absence of a role tag, so whatever identifies "the deck's plan" has to
   be a different signal than the existing ~36 utility role tags.
 - Open questions:
-  - **Primary blocker:** how should the system identify a deck's actual plan? Candidates:
-    existing archetype detection (may be too coarse — archetype family vs. this specific
-    deck's card choices), a new clustering signal (grouping the deck's existing Plan
-    cards by shared traits to infer a theme), or entry 13 (user-declared plan). Not yet
-    confirmed which is sufficient or how they combine — entry 5 stays blocked until this
-    is scoped, possibly as its own entry.
+  - **Primary blocker:** how should the system identify a deck's actual plan? Entry 13
+    (2026-07-13) is scoped as a **guided wizard + deterministic algorithm** — structured
+    intake and rule-based inference only, no runtime AI — see entry 13 design decisions.
+    Remaining candidates for inference-only path: existing archetype detection (may be too
+    coarse), deck-analysis heuristics surfaced by the wizard's "sufficient cards" path.
+    Not yet confirmed which signals are sufficient or how declared vs inferred plan
+    combine — entry 5 stays blocked until entry 13's output schema is settled.
   - Once deck-plan identification is scoped: what should the unowned Plan backfill
     actually filter/rank by?
   - Still need a concrete example deck to confirm the "no suggestions" symptom in
@@ -411,32 +435,120 @@ entry should include:
   - `K_B` vs `K_B_RAMP` numeric values — calibrate on STE/RG and WE/RG with logged terms.
   - ETB-ramp effective-CMC adjustment inside L — needed or does B alone suffice?
 
-### 13. User-declared deck plan (natural language intake)
-- Status: Symptom noted
+### 13. User-declared deck plan (guided wizard intake)
+- Status: **Needs investigation** — design decisions captured (2026-07-13); not yet Fix
+  scoped. Supersedes the original "natural language + LLM parse" direction as the primary
+  implementation path (see Design decisions below).
 - Side: Adds (primary), potentially Cuts
 - Symptom: n/a — feature request. Currently "Plan" has no positive definition; the app
   has no way for the user to directly state a deck's actual gameplan/win condition. This
   blocks meaningful Plan-aware backfill (entry 5) and Plan-aware Cuts scoring.
-- Proposed fix: Add an intake mechanism where the user can describe the deck's plan in
-  natural language, OR answer guided leading questions if they don't have a free-form
-  description ready. Output needs to be structured enough for scoring to consume — not
-  just stored as a text blob. Likely needs an LLM-assisted parse step to convert free
-  text into: (a) primary plan tags/synergies, (b) secondary plan tags/synergies, (c)
-  win-condition category. Exact output schema TBD — must be compatible with whatever
-  entry 5's clustering path produces, so Adds/Cuts scoring can consume either declared
-  or inferred plan through the same downstream interface.
-- Constraints: Should complement, not replace, archetype+clustering inference — declared
-  plan should take precedence over inferred plan when present, and could double as
-  validation data for the clustering approach. Do not implement until the inferred-plan
-  output schema is settled, since both paths need to feed scoring the same way.
+- Confirmed cause: n/a — design-level only so far
+- Proposed fix: Add a **guided wizard** (primary intake) that collects structured plan
+  information the recommendation engine consumes via a **deterministic algorithm — no AI at
+  runtime, ever** (see "Note for coding agents" at top of doc). The wizard is itself part
+  of the algorithm: multiple-choice answers, deck-analysis heuristics, and explicit
+  user corrections — not LLM interpretation. Output must be structured enough for scoring
+  to consume — not just stored as a text blob. Must be compatible with entry 5's
+  downstream plan interface so declared and inferred plan can feed scoring the same way
+  once entry 5 unblocks.
+  **Overall goal:** help the engine understand what the player is trying to accomplish so
+  recommendations align with the deck's intended identity, not just generic role deficits.
+  **Wizard behavior (high level):**
+  - Adaptive by experience level (Beginner / Intermediate / Advanced) — early question
+    sets wording depth and pacing.
+  - If insufficient cards exist: skip deck analysis, begin with user questions.
+  - If sufficient cards exist: analyze deck first → generate observations → ask questions
+    informed by those observations (use existing info before asking user to repeat it).
+  - Collect Primary / Secondary / Tertiary plan (and more if desired); encourage 1–2
+    plans but no hard limit.
+  - Questions primarily multiple-choice, each with a "Show More Options" button; all
+    questions skippable.
+  - User can correct incorrect analysis conclusions — user input is authoritative.
+  - Wizard determines when it has enough info, then offers: "I have what I need to make
+    recommendations, but answering more questions can make them stronger." User chooses
+    whether to continue; wizard does not auto-stop.
+  - Works for new deck creation **and** optimizing existing decks.
+  **How plan influences recommendations (conceptual):**
+  - Functional roles (Ramp, Draw, Removal, Protection, etc.) are foundational — the
+    "vegetables." Plan is also a role, but represents identity/strategy/what makes the deck
+    unique — the "exciting" part. Tags and Plan are separate: tags provide signals; Plan is
+    a higher-level concept built from deck analysis + existing tags + user intent. Plan does
+    not replace tagging.
+  - **"Eat your veggies first":** recommendations prioritize (1) functional role
+    deficiencies, then (2) plan enhancements. Functional priorities use baseline
+    deck-building principles, adjusted by Plan and user preferences.
+  - Ideal: Plan influences weighting of other roles (e.g. sacrifice deck values cards
+    differently than control). Acceptable v1 fallback if dynamic weighting is too complex:
+    treat Plan as another role with equal weight (implementation constraint, not conceptual
+    goal).
+  - Recommendations organized by priority; when a card satisfies multiple roles, UI should
+    explain those roles.
+  - **Do not redesign** the multi-role scoring algorithm (entries 7, 9, 10, 11, 12) —
+    Entry 13 provides better plan information for that existing algorithm to consume.
+- Constraints:
+  - **No runtime AI — hard constraint.** The shipped feature must not call, depend on, or
+    require any LLM or other AI/ML inference. Wizard intake, deck analysis, plan
+    inference, and scoring integration must all be deterministic code. Coding agents write
+    the code; the product does not use AI.
+  - Wizard produces structured data directly (multiple choice, skippable questions, user
+    corrections) — never free-text → LLM parse.
+  - Should complement, not replace, archetype + deck-analysis inference — declared plan
+    takes precedence over inferred plan when present; user corrections are authoritative.
+  - Do not implement until the plan output schema is settled enough for entry 5 and
+    scoring to consume through a shared downstream interface.
+  - Entry 13 does not redesign entries 7/9/10/11/12 scoring terms.
 - Open questions:
-  - Guided-question flow vs. free text vs. both — which ships first?
-  - What structured schema does "plan" need for scoring to use it?
-  - LLM call at deck-save time, one-time at deck creation, or re-triggerable?
-  - How does declared plan interact with archetype detection — override/inform it, or
-    run independently alongside it?
+  - **Structured output schema** — what exact fields does scoring need? (primary/secondary/
+    tertiary plan tags, win-condition category, role-weight adjustments, etc.) Still TBD.
+  - **"Sufficient cards" threshold** — how many cards before deck-analysis-first path kicks
+    in?
+  - **Deck analysis observations** — what signals does the system surface before asking
+    questions? (archetype detection, tag clustering, etc.)
+  - **Experience-level branching** — exact question sets per Beginner/Intermediate/Advanced.
+  - **Multiple-choice option catalog** — what plan categories/synergies/win conditions ship
+    in v1? "Show More Options" expansion set.
+  - **Dynamic role weighting vs equal-weight Plan fallback** — which path is feasible for
+    v1 once schema is mapped to scoring?
+  - How does declared plan interact with archetype detection — override, inform, or run
+    alongside?
   - Should Cuts also become plan-aware (e.g. don't suggest cutting a card that's part of
     the declared secondary win-con even if its role-tag surplus looks cuttable)?
+  - Optional free-text notes for display only — if ever added, must not affect scoring
+    unless the user also selects the equivalent structured wizard option (no LLM bridge).
+
+#### Design decisions (2026-07-13 chat — design reference, not implementation prompt)
+Captured from a design session (ChatGPT; some context was misunderstood, but decisions
+below are retained as valuable). Supersedes the original LLM-first proposal in this entry.
+**Agent clarification (2026-07-13):** we are building an algorithm. Coding agents may use
+AI to write the code; the shipped product must not use AI at runtime.
+
+| # | Decision |
+|---|----------|
+| 1 | **Wizard first** — guided wizard is primary intake; only structured answers affect scoring |
+| 2 | **Multiple choice primary** — each question has "Show More Options"; no AI needed to interpret arbitrary input |
+| 3 | **Adaptive wizard** — early question sets Beginner / Intermediate / Advanced; wording and pacing adapt |
+| 4 | **Deck-creation vs existing-deck paths** — insufficient cards → questions first; sufficient cards → analyze deck first, then ask informed questions |
+| 5 | **When analysis happens** — analyze → observations → informed questions (or skip analysis if too few cards) |
+| 6 | **Primary / Secondary / Tertiary plan** — collect explicitly; encourage 1–2 plans, no hard limit |
+| 7 | **All questions skippable** — wizard never requires every question answered |
+| 8 | **Wizard completion** — system signals when it has enough info; user chooses to continue or stop (no auto-stop) |
+| 9 | **User can correct system** — if analysis is wrong, user overrides; user input is authoritative |
+| 10 | **Existing deck optimization** — wizard helps optimize existing decks, not only new-deck creation |
+| 11 | **Plan ≠ tags** — tags are signals; Plan is higher-level (analysis + tags + user intent); tagging system stays intact |
+| 12 | **Plan vs roles clarified** — functional roles are foundational "vegetables"; Plan is the exciting identity/strategy role; don't forget either |
+| 13 | **Plan influences role weighting** — ideal: Plan adjusts how other roles are valued; v1 fallback: Plan as equal-weight role if dynamic weighting too complex |
+| 14 | **"Eat your veggies first"** — functional role deficiencies before plan enhancements |
+| 15 | **Functional priorities** — baseline principles, adjusted by Plan and user preferences; players may intentionally deviate |
+| 16 | **Recommendation presentation** — organized by priority; multi-role cards explained in UI |
+| 17 | **Don't redesign scoring algorithm** — entries 7/9/10/11/12 already govern multi-role weighting; Entry 13 feeds them better plan data |
+| 18 | **Rethink original Entry 13** — natural language + LLM parse is rejected; wizard is the structured data source |
+| 19 | **Algorithm, not AI product** — deterministic rules/formulas end-to-end; coding agents write the code, but runtime must not use LLM or other AI inference |
+
+**Design philosophy summary:** ensure the deck is fundamentally healthy first, then help
+make it uniquely *this* deck. Functional roles are essential; Plan gives personality. The
+wizard captures that personality in structured, deterministic form for the existing
+recommendation algorithm — without AI at runtime.
 
 ### Coordinated scoring pass — entries 7 + 9 + 10 + 11 + 12
 - Status: **Prompt drafted** (2026-07-12) — ship as **one agent task**, not five separate
@@ -600,6 +712,12 @@ have yet (e.g. new scoring signals, new UI controls). Treat descriptions below a
 current (possibly buggy, possibly incomplete) behavior, not the desired end state — don't
 assume something is correct or complete just because it's documented here.
 
+**Implementation model:** all recommendation behavior — current scoring, planned scoring
+changes (entries 7–12), and the Entry 13 plan wizard — is a **deterministic algorithm**
+(formulas, rules, structured input). The shipped product does not use AI at runtime.
+Coding agents are used to author that code; do not propose LLM/ML dependencies as part
+of the feature unless the user explicitly reopens that constraint.
+
 This project stays scoped to Suggested Cuts / Suggested Adds only, not the wider
 deck-builder app. This doc is for the user only, not a shared team reference.
 
@@ -665,6 +783,8 @@ without explicit instruction, just make sure it's on the radar. **INTENTIONAL, D
   decks.js:7126 `_computeIdealManaCurveContext`, decks.js:11149 `CK_REQUIRED_ENABLERS` (15).
 
 ## How to use this
+- **Algorithm, not AI:** implement and extend this feature as deterministic code only.
+  See "Note for coding agents" at the top of this doc. Do not add runtime LLM/ML calls.
 - Treat this as ground truth for how scoring currently works — don't re-derive from
   first principles or guess at intent for the quirks above.
 - If asked to change scoring behavior, name which side (Cuts vs Adds) and which term
@@ -701,6 +821,8 @@ doc, `cuts-adds-archive.md`, holds closed/ruled-out/shipped entries with full re
 *Drafting a prompt from an entry (only on explicit request):*
 - Only draft a ready-to-use prompt for entries at **Fix scoped** or later. If an entry
   isn't there yet, say so and offer to help investigate/scope it instead.
+- **State explicitly in every prompt:** the deliverable is deterministic algorithm code;
+  no runtime AI/LLM dependencies. Coding agents write the code; the product does not use AI.
 - Follow the doc's "How an entry becomes a prompt" template: verified current behavior +
   file/function, the defect scoped to one term on one side, the desired change, an
   explicit do-not-touch list, and a verification step.
