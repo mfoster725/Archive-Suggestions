@@ -154,9 +154,9 @@ This approach ensures that:
 - Open questions: none
 
 ### 5. Plan-only-deficit decks never fetch unowned cards
-- Status: Needs investigation — **direction decided**; **implement with Entry 13 v1** (plan-
-  aware backfill algorithm in Entry 13 v1 spec). Entry 13 is now **Fix scoped**; entry 5
-  can advance to Fix scoped as a bundled or follow-on prompt using the same plan schema.
+- Status: Needs investigation — **direction decided**; **bundled into Entry 13 v1** (Prompt
+  drafted — see `cuts-adds-ready-prompts.md` Prompt 2). Implement with Entry 13; do not
+  ship Entry 5 alone without plan schema.
 - Side: Adds
 - Symptom: likely explains "no suggestions" / "same suggestions forever" complaints —
   need a concrete example deck to confirm
@@ -483,9 +483,10 @@ This approach ensures that:
   - ETB-ramp effective-CMC adjustment inside L — needed or does B alone suffice?
 
 ### 13. User-declared deck plan (guided wizard intake)
-- Status: **Prompt drafted** (2026-07-13) — v1 ready for partner implementation in the
-  main app repo (`decks.js`). Copy **`entry-13-v1-implementation-prompt.md`** in full to
-  an agent with app-repo access. Do not execute until user says start. v2 remains separate.
+- Status: **Prompt drafted** (2026-07-13) — v1 ready for partner implementation. **Runnable
+  prompt:** Prompt 2 in [`cuts-adds-ready-prompts.md`](./cuts-adds-ready-prompts.md) (also
+  [`entry-13-v1-implementation-prompt.md`](./entry-13-v1-implementation-prompt.md)). Run in
+  main app repo after Prompt 1 when possible. Do not execute until user says start.
   Supersedes the original "natural language + LLM parse" direction as the primary
   implementation path (see Design decisions below).
 - Side: Adds (primary); Cuts plan-awareness deferred to v2 (interview #29)
@@ -880,11 +881,9 @@ v2 hooks: `tertiaryStrategyId`, `hybridRoleModifiers`, `cutsShielding` — nulla
 
 ## Agent prompt: Entry 13 v1 — plan wizard + plan-aware backfill
 
-**Full self-contained implementation prompt:**
-[`entry-13-v1-implementation-prompt.md`](./entry-13-v1-implementation-prompt.md)
-
-Hand that file (entire contents) to an agent with access to the **main deck-builder repo**
-(where `decks.js` lives). Archive-Suggestions is docs-only — implementation cannot run here.
+**Runnable copy:** Prompt **2 of 2** in
+[`cuts-adds-ready-prompts.md`](./cuts-adds-ready-prompts.md)
+(twin: [`entry-13-v1-implementation-prompt.md`](./entry-13-v1-implementation-prompt.md)).
 
 Do **not** move Entry 13 to `cuts-adds-archive.md` until Status reaches **Shipped**.
 
@@ -896,9 +895,10 @@ wizard captures that personality in structured, deterministic form for the exist
 recommendation algorithm — without AI at runtime.
 
 ### Coordinated scoring pass — entries 7 + 9 + 10 + 11 + 12
-- Status: **Prompt drafted** (2026-07-12) — ship as **one agent task**, not five separate
-  PRs. Entries 7, 9, 10, 11, 12 remain individually tracked above; this entry is the
-  integration record and holds the ready-to-copy agent prompt.
+- Status: **Prompt drafted** (2026-07-12) — **Runnable copy:** Prompt **1 of 2** in
+  [`cuts-adds-ready-prompts.md`](./cuts-adds-ready-prompts.md). Ship as **one agent task**,
+  not five separate PRs. Entries 7, 9, 10, 11, 12 remain individually tracked above; this
+  entry is the integration record.
 - Side: Adds (+ server precompute for E)
 - Confirmed cause: spec-level only; repo agent must verify D/V/C formulas and tag IDs
   before editing.
