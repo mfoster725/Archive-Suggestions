@@ -588,6 +588,8 @@ Use this section to drop in raw observations ("deck X got suggested to cut Y, wh
 obviously wrong because Z") before they're triaged into a numbered entry above.
 
 -
+- [TEST — 2026-07-12] Token write-access confirmed working. Safe to delete this line.
+
 
 ---
 
