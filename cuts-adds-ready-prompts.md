@@ -57,80 +57,137 @@ Current score (approx): `(D × M) + C + V + T + K` — no E, P, L, or B terms; D
 sums full credit per matched deficit; C applies uniformly.
 
 ## Goal
-Implement coordinated scoring changes so ALL verification cases pass (see bottom).
+Implement coordinated scoring changes so **hard** verification cases pass and **soft**
+cases are evidenced with term logs (see Verification).
 
-**Hard constraint:** Deterministic algorithm only — no runtime AI/LLM.
+**Hard constraint:** Deterministic algorithm only — no runtime AI/LLM/ML inference.
 
-## Step 0 — Repo discovery (do this first, document in PR)
+## Locked design decisions (do not re-open)
+These were decided in a design interview. Prefer them over older backlog TBD wording.
+
+## Step 0 — Repo discovery (do first; document in PR)
 1. Read `_scoreAddCandidate` — confirm current D, M, C, V, T, K math and constants.
-2. Locate project **role-tag IDs/names** (~36 utility tags). Build constants from semantic
-   lists in backlog entry 11 — do NOT assume Scryfall `otag:` slugs match project IDs.
-3. Locate **archetype detection** for spellslinger (or equivalent). Document function used
-   for entry 12 B-term gating.
-4. Confirm `edhrec_rank` and USD price available on card objects in local DB.
-5. Log term breakdown helper for verification (debug flag or unit test).
+2. Locate project **role-tag IDs/names** (~36 utility tags). Build a **single centralized
+   semantic→ID map** for efficiency-mode / exclusions / B / E role selection.
+   - Do NOT assume Scryfall `otag:` slugs match project IDs.
+   - **Partner tag work (outside this repo’s docs) may rename/replace IDs soon.** Keep
+     the map in one place; treat IDs as transitional; do not scatter hard-coded tag
+     strings. Do not block waiting for that partner work.
+3. Locate **existing** archetype/spellslinger detection for B gating. Document the hook.
+   - Use what exists only — **do not invent** a new spellslinger heuristic.
+   - Treat this gate as **temporary wiring**; partner archetype/tag work may change it.
+4. Confirm `edhrec_rank` and USD price fields on local card objects.
+5. Confirm Adds already **excludes cards outside the commander’s color identity**. If
+   missing, fix that pool filter — never “score away” off-color cards. Do not broaden
+   owned/backfill scope (entry 6).
+6. Add term-breakdown logging (debug flag) **and** automated checks for hard cases.
 
 ## Term changes
 
 ### D — sublinear multi-deficit scaling (entry 10, PRIMARY)
-When candidate matches multiple active deficits:
+When candidate matches multiple **active** deficits:
 - Collect matched deficit magnitudes; sort descending.
-- `D = Σ deficit_i × weight_i` where weights = `[1.0, 0.40, 0.20]` for 1st/2nd/3rd+.
+- `D = Σ deficit_i × weight_i` with locked weights
+  `D_SUBLINEAR_WEIGHTS = [1.0, 0.50, 0.25]` for 1st / 2nd / 3rd+.
 - Single-deficit candidates: unchanged (weight 1.0 only).
+- **D owns multi-need credit.** Do not retarget V to “active deficits only” (that would
+  double-count D).
 
 ### L + C_eff — CMC efficiency for interaction roles (entry 11)
-Build `EFFICIENCY_MODE_PROJECT_TAGS` from backlog entry 11 Tier 1 + Tier 2 semantic
-categories mapped to project tag IDs. Exclude lands from L.
+Build `EFFICIENCY_MODE_PROJECT_TAGS` from backlog entry 11:
+
+**In efficiency mode (L on, C off):**
+- Tier 1 + Tier 2 semantic roles from entry 11
+- **Plus** tutors and fight/bite (Tier 3 subset — locked)
+
+**Keep normal C, do NOT apply L:**
+- Board Wipe, Card Draw (general), draw engines, Plan/untagged, land-ramp, anthems/
+  finishers (entry 11 exclusion table)
+- **Plus** recursion/reanimate and cantrip / pure-draw–style draw (Tier 3 excluded)
+
+Exclude **lands** from L even if tagged ramp.
 
 If candidate has ≥1 efficiency-mode tag AND is not a land:
 - `C_eff = 0`
-- `L = K_L × max(0, CMC_REF − CMC)` with `CMC_REF = 4`, `K_L` tuned
+- `L = K_L × max(0, CMC_REF − CMC)` with locked `CMC_REF = 4`
+- Tune `K_L` in repo (simple arithmetic — must not add live network/DB work per
+  suggestion)
 Else:
 - `C_eff = C` (existing curve-gap bonus)
 - `L = 0`
 
-Do NOT apply L / do not zero C for: Board Wipe, Card Draw (general), draw engines,
-Plan/untagged, land-ramp categories — see backlog entry 11 exclusion table.
+**No ETB-effective-CMC exception** (e.g. do not pretend Wood Elves is CMC 2 for L).
+Use printed CMC (with `{X}` = 3 convention below).
 
 ### E — price-aware EDHREC percentile (entry 7)
-Precompute server-side (never live per suggestion):
-- Per role tag, store percentile from `edhrec_rank` within that tag's ranked population.
-- Min population 8; below → E = 0 (neutral).
-- **Price-aware:** adjust rank/percentile so expensive staples aren't systematically
-  underrated (document formula; Three Visits rank ~42 must stay elite).
+**Precompute in this same prompt** if missing (no prior prompt owns this):
+- Server-side / migration or periodic job only — **never** compute percentiles live per
+  suggestion.
+- Per role tag: population = local cards with that tag, non-null `edhrec_rank`, and
+  **Commander-legal when legality exists** (do not split by deck color identity for the
+  tables).
+- Min population **8**; below → store no percentile; at score time **E = 0**.
+- Raw rank → percentile `p` in **[0, 1]** (higher = more popular / better rank).
 
-At scoring: **one E per candidate** using percentile for **largest active deficit's role**.
-Multi-tag dampening inside E only (optional). Do NOT sum E per tag.
-Do NOT use EDHREC category APIs or scrape edhrec.com.
+**Price bands (locked; USD from existing local card price field):**
+Apply **additive** deltas to `p`, then clamp to **[0, 1]** (defaults locked):
+| USD price | Δp |
+|----------:|---:|
+| `< 0.75` | −0.05 (cheap bulk tax) |
+| `0.75 ≤ price < 5` | 0 |
+| `5 ≤ price < 20` | +0.05 |
+| `20 ≤ price < 50` | +0.10 (peak rescue — hard-swap zone) |
+| `≥ 50` | +0.05 (mild only — often proxied; do not escalate) |
+
+Use **discrete steps** at band edges (not smooth interpolation inside a band).
+
+**Score-time E:**
+- `p_adjusted = clamp(p + Δp, 0, 1)`
+- **Linear** curve (locked): `E = K_E × p_adjusted`
+- **One E per candidate** — percentile for the role of the **largest active deficit**.
+- **Equal-largest deficit tie (default):** among tied top magnitudes, prefer a tied role
+  the candidate actually matches; if several match, pick the lexicographically smallest
+  project role-tag ID; if none match, E = 0.
+- **No multi-tag dampening inside E** (locked — do not add).
+- Do NOT sum E per tag. Do NOT use EDHREC category APIs or scrape edhrec.com.
+- Three Visits (rank ~42) must remain elite after price adjust.
+
+**`K_E` (locked relative rule):** after `K_L` is set, choose `K_E` so max E (`p_adjusted=1`)
+≈ **half of a meaningful 1-CMC L step** (i.e. ≈ `0.5 × K_L` when CMC_REF gaps differ by 1).
+Document both values in the PR.
 
 ### B — creature body bonus (entry 12)
-If `!deckIsSpellslinger(deck)` AND candidate is Creature AND fills active deficit:
-- `B = K_B_RAMP` when ramp deficit active and candidate has Ramp tag
-- else `B = K_B` for other qualifying creatures (v1: ramp-focused; extend later)
+STE / Wood Elves / Rampant Growth were **examples**, not “B is ramp-only.”
+
+If existing detection says spellslinger → `B = 0`.
+Else if candidate is a **Creature** AND fills **any** active utility-role deficit:
+- `B = K_B` (single flat constant for all qualifying roles — **no `K_B_RAMP`**)
 Else `B = 0`.
 
-Must flip: Sakura-Tribe Elder > Rampant Growth; Wood Elves > Rampant Growth even though
-L favors RG by 1 point (CMC 2 vs 3). Calibrate K_B_RAMP accordingly.
+Tune `K_B` so **Sakura-Tribe Elder > Rampant Growth** on a non-spellslinger green ramp
+fixture. **Do not** calibrate so Wood Elves always beats Rampant Growth — CMC still
+matters; either card can win depending on curve/deficits.
 
 ### P — colored pip restrictiveness (entry 9)
-`P = K_P × pip_restrictiveness_score`, computed from parsed mana cost:
-- W/U/B/R/G pips: full weight (1.0 each)
-- Hybrid pips (e.g. `{G/U}`): dampened, ~0.5 weight each
-- Phyrexian pips (e.g. `{G/P}`): **negative weight** (small bonus, not neutral) — more
-  flexible than colorless since payable with life; exact magnitude TBD, calibrate with
-  other P constants
-- Colorless `{C}`: 0 weight
-- Generic `{1}`/`{2}`/etc.: 0 weight
-- `{X}`: 0 weight for P (no color symbol)
+`P = K_P × pip_restrictiveness_score` from parsed mana cost (locked weights):
+- W/U/B/R/G: **1.0** each
+- Hybrid (e.g. `{G/U}`): **0.5** each
+- Phyrexian (e.g. `{G/P}`): **−0.5** each (flexibility bonus)
+- `{C}`, generic `{1}`/`{2}`/…, `{X}`: **0**
 
-Subtract `P` from total. Penalize regardless of on-color status.
+Subtract `P` from total. Penalize regardless of on-color status (identity legality is a
+pool filter, not P). Tune `K_P` so same-CMC fights (Growth Spiral vs Three Visits) feel
+P, while weight order keeps P below E and B.
 
-**Effective CMC convention (applies to C_eff/L, not P):** treat `{X}` as **X = 3** for
-any CMC-based term. Apply this consistently wherever CMC-based scoring reads a card's CMC.
+**Effective CMC for C_eff/L (not P):** treat `{X}` as **X = 3** anywhere CMC-based scoring
+reads CMC.
 
-### V — dampen multi-tag versatility (entry 10, tertiary)
-Keep V positive. Dampen for 2+ utility tags (~50% on 2nd+ tag contribution).
-Do NOT add Cuts-style subtractive multi-role discount on total score.
+### V — versatility (entry 10, tertiary)
+Keep V as a **small positive** for paper multi-tag breadth.
+- Dampen **2nd+ utility-tag contribution inside V by ~50%**.
+- Do **not** redefine V as active-deficit-only (D already owns needed multi-role credit).
+- Do NOT add Cuts-style subtractive multi-role discount on total Adds score.
+- Weight order keeps V near the bottom so unused tags cannot beat better-in-role cards.
 
 ## Final formula
 `Score = (D × M) + C_eff + L + E + B − P + V + T + K`
@@ -140,31 +197,48 @@ Do NOT add Cuts-style subtractive multi-role discount on total score.
 
 ## Do NOT touch
 - Cuts / `_suggestCardsToCut`
-- Adds candidate pool / owned vs backfill (entry 6)
+- Adds candidate pool sizing / owned vs backfill modes (entry 6), except verifying
+  commander color-identity legality filtering
 - `tribes: []` on backfill (intentional)
 - `CK_REQUIRED_ENABLERS` (15)
 - Entry 1 commander CMC curve fix (unless user says bundle)
 - Entry 13 plan wizard (prompt 2 — run after this ships)
+- Player-facing “dismiss / bad recommendation / learn” UI (future backlog — out of scope)
+- Inventing spellslinger detection when none exists
+- Live Scryfall / EDHREC scrape
 
-## Verification (all required)
-| # | Case | Expected winner |
-|---|------|-----------------|
+## Verification
+
+### Hard (automated asserts + term log) — must pass
+| # | Case | Expected |
+|---|------|----------|
 | 1 | Simic, ramp deficit > draw deficit | Three Visits > Growth Spiral |
 | 2 | Ramp deficit active | Three Visits > Cultivate |
 | 3 | Non-spellslinger green ramp deck | Sakura-Tribe Elder > Rampant Growth |
-| 4 | Same deck | Wood Elves > Rampant Growth |
 | 5 | Board-wipe deficit only | Sweepers still get C (L not applied) |
-| 6 | Spellslinger deck (if detectable) | B = 0; RG may beat STE |
 | 7 | Term isolation | E favors TV over GS in ramp context but cannot alone flip #1 |
 
-Log D, M, C_eff, L, E, B, P, V, T, K for each verification pair.
+### Soft (debug log + PR write-up — do not hard-fail forever)
+| # | Case | Expectation |
+|---|------|-------------|
+| 4 | WE vs Rampant Growth | **Either may win.** L’s CMC edge can favor RG; B must not force WE always. |
+| 6 | Spellslinger deck | Only if existing detection exists: B = 0; RG may beat STE. If undetectable, document and skip soft assert. |
+
+Log `D, M, C_eff, L, E, B, P, V, T, K` for every verification pair.
+
+**Verification delivery:** pre-ship automated checks for hard cases **and** a debug flag for
+term logs (off in normal production UX). Soft cases use logs + PR notes.
 
 ## Deliverables
-- Code + named constants (`D_SUBLINEAR_WEIGHTS`, `K_L`, `CMC_REF`, `K_P`, `K_B`, `K_B_RAMP`, E params)
-- `EFFICIENCY_MODE_PROJECT_TAGS` with mapping comment
+- Code + named constants (`D_SUBLINEAR_WEIGHTS`, `CMC_REF`, `K_L`, `K_E`, `K_P`, `K_B`,
+  E price band deltas, population floor 8)
+- Central `EFFICIENCY_MODE_PROJECT_TAGS` (+ exclusion list) with mapping comments and
+  “IDs may change” note
 - Formula comment block in `_scoreAddCandidate`
 - Precompute job/migration for E percentiles if not present
-- Test or debug output for all 7 verification cases
+- Hard-case automated verification + debug term logging
+- Step 0 findings (including T/K meanings, spellslinger hook or absence, color-identity
+  filter confirmation) in PR notes
 ```
 
 ---
