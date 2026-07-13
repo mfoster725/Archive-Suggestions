@@ -546,19 +546,17 @@ This approach ensures that:
     scoring to consume through a shared downstream interface.
   - Entry 13 does not redesign entries 7/9/10/11/12 scoring terms.
 - Open questions:
-  - **Structured output schema** — must include strategy/archetype AND win condition per
-    interview decision #20 (revised). Remaining: unified vs separate fields (decision #21
-    pending), plus role-weight adjustments if any.
-  - **Win condition capture shape** — resolved in principle (part of plan); intake UX TBD
-    (decision #21).
+  - **Structured output schema** — `{ strategyId, winConditionId }` pairs per plan slot per
+    decision #21; whether pairs repeat for Primary/Secondary/Tertiary — decision #22 pending.
+  - **Win condition capture shape** — two separate wizard questions after strategy (decision
+    #21); catalog contents TBD.
   - **"Sufficient cards" threshold** — how many cards before deck-analysis-first path kicks
     in?
   - **Deck analysis observations** — what signals does the system surface before asking
     questions? (archetype detection, tag clustering, etc.)
   - **Experience-level branching** — exact question sets per Beginner/Intermediate/Advanced.
-  - **Multiple-choice option catalog** — strategy/archetype AND win-condition categories
-    (or unified mission-statement options) for v1; "Show More Options" expansion set.
-    Shaped by decisions #20–21.
+  - **Multiple-choice option catalog** — separate strategy/archetype and win-condition
+    category lists for v1; "Show More Options" expansion set. Shaped by decisions #20–21.
   - **Dynamic role weighting vs equal-weight Plan fallback** — which path is feasible for
     v1 once schema is mapped to scoring?
   - How does declared plan interact with archetype detection — override, inform, or run
