@@ -4,14 +4,14 @@ Docs-only archive for the Cuts/Adds improvement work.
 
 | File | Purpose |
 |------|---------|
-| `cuts-adds-backlog.md` | Living backlog + design interview + algorithm specs |
-| `cuts-adds-archive.md` | Closed / ruled-out / **shipped** entries (full write-ups) |
-| `entry-13-v1-implementation-prompt.md` | **Ready-to-run** agent prompt for Entry 13 v1 (partner’s app repo) |
+| `cuts-adds-backlog.md` | Living backlog, design interviews, algorithm specs |
+| `cuts-adds-archive.md` | Closed / ruled-out / **shipped** entries |
+| **`cuts-adds-ready-prompts.md`** | **Ready-to-run agent prompts, in implement order** |
+| `entry-13-v1-implementation-prompt.md` | Twin of Prompt 2 in the ready-prompts doc (Entry 13 v1) |
 
-## Entry 13 handoff
+## Partner handoff
 
-1. Entry 13 v1 status: **Prompt drafted** (in backlog).
-2. Give your partner / implementing agent the full contents of
-   `entry-13-v1-implementation-prompt.md`.
-3. That agent must run in the **main deck-builder repo** (contains `decks.js`), not here.
-4. Move Entry 13 into `cuts-adds-archive.md` only after Status = **Shipped**.
+1. Open **`cuts-adds-ready-prompts.md`**.
+2. Run prompts **in listed order** (currently: 1 → scoring rebalance 7/9/10/11/12, then 2 → Entry 13 v1).
+3. Each prompt runs in the **main deck-builder repo** (`decks.js`), not here.
+4. After ship: move entry to archive; remove that prompt from the ready-prompts queue.

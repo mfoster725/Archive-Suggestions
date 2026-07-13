@@ -45,6 +45,11 @@ for coding agents"). A prompt built from an entry should include:
 - A verification step: how to confirm the fix actually worked (e.g. "recompute score for
   test deck X, confirm curve bonus now factors in commander CMC")
 
+When Status reaches **Prompt drafted**, add the copy-paste prompt to
+`cuts-adds-ready-prompts.md` in **implementation order** (that file is the handoff queue for
+partners). Keep detailed design notes in this backlog; keep only the runnable prompt in the
+ready-prompts doc.
+
 ## Design interview methodology (for future planning sessions)
 
 When working through an unscoped feature (such as Entry 13), do not jump straight to
@@ -875,65 +880,15 @@ v2 hooks: `tertiaryStrategyId`, `hybridRoleModifiers`, `cutsShielding` — nulla
 
 ## Agent prompt: Entry 13 v1 — plan wizard + plan-aware backfill
 
-Copy everything in this fenced block to an agent with **main app repo** access:
+**Full self-contained implementation prompt:**
+[`entry-13-v1-implementation-prompt.md`](./entry-13-v1-implementation-prompt.md)
 
-```
-# Entry 13 v1 — deck plan wizard + plan-aware Adds backfill
+Hand that file (entire contents) to an agent with access to the **main deck-builder repo**
+(where `decks.js` lives). Archive-Suggestions is docs-only — implementation cannot run here.
 
-## Context
-Deterministic algorithm only — no runtime AI/LLM. See cuts-adds-backlog.md Entry 13
-v1 algorithm spec for catalog IDs, constants, and verification cases.
+Do **not** move Entry 13 to `cuts-adds-archive.md` until Status reaches **Shipped**.
 
-Verify line anchors before editing (may have drifted):
-- Adds backfill gate ~decks.js:6679
-- `_renderAddSuggestions` ~decks.js:6623
-- `_scoreAddCandidate` ~decks.js:6489
-- Plan count / deficit logic ~decks.js:6294
-
-## Step 0 — Repo discovery (document in PR)
-1. Where deck JSON stores metadata — add plan fields.
-2. Existing archetype detection — plan overrides for backfill only.
-3. Project role-tag IDs — map STRATEGY_DECK_SIGNALS semantic list to real IDs.
-4. `/api/cards/by-roles` — extend or add plan-aware filter params if needed.
-5. UI pattern for modals/wizards in deck builder.
-
-## Deliverables (v1 MVP only — see "Explicitly out of v1" in backlog)
-
-### 1. Plan schema + persistence
-- winConditionId, primaryStrategyId, secondaryStrategyId (optional)
-- fieldSources metadata
-- v2 nullable hooks
-
-### 2. Plan wizard UI
-- <80: commander confirm → wincon Q → primary strategy Q → optional secondary
-- >=80: deck analysis → up to 3 chips → formal Qs per chip/skip rules (#26)
-- Shared picker component; dynamic top 6 + Show More; static fallback
-- Back navigation edits any field
-- Catalog IDs exactly as v1 algorithm spec tables
-
-### 3. Ranking / inference engine
-- rankForCommander, rankForDeck per spec
-- PLAN_WIZARD_ANALYZE_THRESHOLD = 80
-- PLAN_INFERENCE_CONFIDENCE_MIN = 0.35 (named constant, tunable)
-
-### 4. Entry 5 — Plan-only backfill
-- Trigger unowned fetch on Plan-only deficit when plan declared
-- planMatchScore filter/rank per spec
-- Declared plan overrides archetype on this path
-
-### 5. Adds scoring
-- Equal-weight Plan role only — no hybrid modifiers (v2)
-
-## Do not touch
-- Cuts scoring (v2)
-- Hybrid role-weight modifiers (v2)
-- Entries 7–12 terms unless already shipped separately
-- tribes: [] quirk, CK gate, candidate pool rules
-
-## Verification
-Run all 7 cases in v1 algorithm spec verification table; log planMatchScore and inference
-scores in debug mode.
-```
+---
 
 **Design philosophy summary:** ensure the deck is fundamentally healthy first, then help
 make it uniquely *this* deck. Functional roles are essential; Plan gives personality. The
