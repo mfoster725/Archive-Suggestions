@@ -478,9 +478,9 @@ This approach ensures that:
   - ETB-ramp effective-CMC adjustment inside L — needed or does B alone suffice?
 
 ### 13. User-declared deck plan (guided wizard intake)
-- Status: **Fix scoped** (2026-07-13) — design interview #20–31 complete; v1/v2 split and
-  **v1 algorithm spec** below approved via option A (agent draft → user). Prompt drafted
-  below; do not execute until user says start. v2 work remains documented separately.
+- Status: **Prompt drafted** (2026-07-13) — v1 ready for partner implementation in the
+  main app repo (`decks.js`). Copy **`entry-13-v1-implementation-prompt.md`** in full to
+  an agent with app-repo access. Do not execute until user says start. v2 remains separate.
   Supersedes the original "natural language + LLM parse" direction as the primary
   implementation path (see Design decisions below).
 - Side: Adds (primary); Cuts plan-awareness deferred to v2 (interview #29)
