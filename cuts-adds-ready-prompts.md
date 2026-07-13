@@ -225,10 +225,16 @@ Ship **Entry 13 v1**: guided deck-plan wizard storing structured plan data, plus
   "winConditionId": "wincon.life_drain",
   "primaryStrategyId": "strategy.sacrifice",
   "secondaryStrategyId": null,
+  "roughMaxDeckBudgetUsd": null,
+  "roughMaxPerCardBudgetUsd": null,
+  "allowBudgetBusters": false,
   "fieldSources": {
     "winConditionId": "chip-confirmed",
     "primaryStrategyId": "formal",
-    "secondaryStrategyId": null
+    "secondaryStrategyId": null,
+    "roughMaxDeckBudgetUsd": "skipped",
+    "roughMaxPerCardBudgetUsd": "skipped",
+    "allowBudgetBusters": "skipped"
   },
   "tertiaryStrategyId": null,
   "hybridRoleModifiers": null,
@@ -236,12 +242,15 @@ Ship **Entry 13 v1**: guided deck-plan wizard storing structured plan data, plus
 }
 - Required for "plan declared": winConditionId + primaryStrategyId
 - secondaryStrategyId optional / skippable
-- fieldSources: chip-confirmed | chip-corrected | formal | skipped→formal
+- Budget fields optional / skippable — null USD = no limit for that dimension
+- allowBudgetBusters: user opted in to a few over-budget suggestions when justified
+- fieldSources: chip-confirmed | chip-corrected | formal | skipped→formal | skipped
 - Last three fields: v2 hooks — nullable, unused in v1
 
 ## Wizard questions
 
-All multiple choice. Stable IDs from catalogs. Show More Options. All skippable.
+Plan/strategy questions: multiple choice. Stable IDs from catalogs. Show More Options.
+Budget questions: tier pickers (+ optional custom USD). All questions skippable.
 User can navigate back and edit any prior answer anytime.
 
 ### Path A — deckCardCount < 80
@@ -251,6 +260,14 @@ User can navigate back and edit any prior answer anytime.
 3. Primary strategy — "What is the main strategy or theme?"
    Top 6 from rankStrategiesForCommander, else static fallback; full catalog in Show More
 4. Secondary strategy (optional) — skippable
+5. Budget preferences (optional) — entire step skippable; each sub-question skippable
+   a. Rough max deck budget — "About how much do you want to spend on this deck total?"
+      Tier picker (budget.deck.*) + optional custom USD; Skip → roughMaxDeckBudgetUsd = null
+   b. Rough max per-card budget — "Rough max for a single suggested card?"
+      Tier picker (budget.card.*) + optional custom USD; Skip → roughMaxPerCardBudgetUsd = null
+   c. Budget busters — "OK with a few suggestions above your per-card budget if they're
+      real winners?" Yes (budget.busters.yes) / No (budget.busters.no) / Skip
+      (defaults to No when per-card budget set; No effect when per-card budget skipped)
 
 ### Path B — deckCardCount >= 80
 1. Run rankStrategiesForDeck + rankWinConditionsForDeck (+ archetype hint)
@@ -261,6 +278,7 @@ User can navigate back and edit any prior answer anytime.
    - Skip or missing → formal Q; pre-fill if score >= min
 4. Correct opens SAME shared picker as formal Q (including Show More)
 5. Optional secondary strategy at end
+6. Budget preferences (optional) — same as Path A step 5
 
 ## Catalogs (exact IDs)
 
@@ -283,6 +301,24 @@ Life drain/life loss; Lock/Stax; Overwhelming value/grind; Other
 
 Static fallback top 5: combat, commander_damage, combo, life_drain, value
 
+### Budget tiers (store resolved USD on deck; tier ID in fieldSources when not custom)
+
+Deck rough max (budget.deck.*):
+- budget.deck.skip → null
+- budget.deck.50 → 50; budget.deck.100 → 100; budget.deck.200 → 200
+- budget.deck.500 → 500; budget.deck.1000 → 1000
+- budget.deck.custom → user-entered rough USD (positive number)
+
+Per-card rough max (budget.card.*):
+- budget.card.skip → null
+- budget.card.1 → 1; budget.card.3 → 3; budget.card.5 → 5
+- budget.card.10 → 10; budget.card.25 → 25
+- budget.card.custom → user-entered rough USD (positive number)
+
+Budget busters (budget.busters.*):
+- budget.busters.no → allowBudgetBusters = false
+- budget.busters.yes → allowBudgetBusters = true
+
 ## Named constants
 PLAN_WIZARD_ANALYZE_THRESHOLD = 80
 PLAN_PRIMARY_OPTIONS_COUNT = 6
@@ -290,9 +326,14 @@ PLAN_INFERENCE_CONFIDENCE_MIN = 0.35
 PLAN_CHIP_MAX = 3
 PLAN_TAG_SIGNAL_WEIGHT = 1.0
 PLAN_ORACLE_SIGNAL_WEIGHT = 0.5
+PLAN_BUDGET_BUSTER_MAX = 2
+PLAN_BUDGET_BUSTER_MIN_SCORE_PERCENTILE = 0.85
 
 PLAN_INFERENCE_CONFIDENCE_MIN is a normalized 0–1 match-score cutoff (not "35% feature
 confidence"). Below 0.35 → static fallback; do not trust chips/pre-fill.
+
+PLAN_BUDGET_BUSTER_MIN_SCORE_PERCENTILE: over-budget card must rank in the top
+(1 − value) of scored Adds candidates for that render to qualify as a "real winner."
 
 ## rankForCommander(commander) — Path A
 Case-insensitive oracle substring hits; each hit += PLAN_ORACLE_SIGNAL_WEIGHT (cap 3/ID).
@@ -350,9 +391,28 @@ Rank Plan pool by planMatchScore desc, then existing Adds score.
 Equal-weight Plan role only — no hybrid modifiers.
 When plan set: do not use archetype on this backfill path.
 
+## Budget-aware Adds filtering
+Use card USD price from local DB (same field as entry 7 E term). Cuts unchanged.
+
+When roughMaxPerCardBudgetUsd is set:
+- Default: deprioritize candidates above limit (sort after in-budget peers at equal role
+  score); do not hard-drop unless pool still fills top N after sort
+- When allowBudgetBusters = true: allow up to PLAN_BUDGET_BUSTER_MAX over-budget cards in
+  the final top-N only if each meets PLAN_BUDGET_BUSTER_MIN_SCORE_PERCENTILE among all
+  scored candidates for that render ("real winners"); never fill more than MAX busters
+- When allowBudgetBusters = false or skipped-with-per-card-set: no over-budget cards in
+  final suggestions
+
+When roughMaxDeckBudgetUsd is set (optional soft signal):
+- Do not block suggestions solely for deck total
+- Use as tie-break / mild deprioritization when comparing near-equal Adds scores
+- UI may show informational note when current deck total already exceeds declared rough max
+
 ## Answers → data
 MC pick → store ID on deck (winConditionId / primaryStrategyId / secondaryStrategyId).
-No free-text parse. Labels are UI; IDs are scoreable.
+Budget tier → resolve and store USD number (or null on skip); store tier ID or "custom"
+in fieldSources. allowBudgetBusters stored as boolean.
+No free-text parse beyond optional custom USD number. Labels are UI; IDs/numbers are scoreable.
 
 ## Do NOT touch
 - Cuts scoring (v2)
@@ -370,18 +430,23 @@ No free-text parse. Labels are UI; IDs are scoreable.
 5. All scores < 0.35 → static fallback; no overconfident chip
 6. Skip chip → formal Q pre-filled if score >= 0.35
 7. Back navigation edits persist correctly
+8. Per-card budget set, busters off → no suggestions above limit in top 8
+9. Per-card budget set, busters on → ≤2 over-budget cards only when score percentile qualifies
+10. Budget step skipped entirely → Adds behavior unchanged vs no budget fields
 
-Log inference scores, chip actions, fieldSources, planMatchScore.
+Log inference scores, chip actions, fieldSources, planMatchScore, budget filter actions.
 
 ## Deliverables
 - Schema + persistence (+ v2 nullable hooks)
 - Wizard Path A and Path B
 - Shared picker + Show More + back nav
+- Optional budget preferences step (deck + per-card limits, budget busters)
 - rankForCommander / rankForDeck + named constants
 - Semantic→project tag ID map in code
 - Entry 5 gate + planMatchScore
+- Budget-aware Adds filtering when limits set
 - Archetype ignored on plan-backfill when plan declared
-- Cases 1–7 evidenced in PR
+- Cases 1–10 evidenced in PR
 - Step 0 findings in PR notes
 
 ## Build order inside this prompt
@@ -389,7 +454,7 @@ Log inference scores, chip actions, fieldSources, planMatchScore.
 2. Path A wizard
 3. Plan backfill (prove Entry 5 early)
 4. Path B chips + shared picker
-5. Optional secondary + polish
+5. Optional secondary + budget preferences + polish
 ```
 
 ---

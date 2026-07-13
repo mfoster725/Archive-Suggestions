@@ -72,10 +72,16 @@ Archive-Suggestions has **no** `decks.js`. Find the real app files before editin
   "winConditionId": "wincon.life_drain",
   "primaryStrategyId": "strategy.sacrifice",
   "secondaryStrategyId": null,
+  "roughMaxDeckBudgetUsd": null,
+  "roughMaxPerCardBudgetUsd": null,
+  "allowBudgetBusters": false,
   "fieldSources": {
     "winConditionId": "chip-confirmed",
     "primaryStrategyId": "formal",
-    "secondaryStrategyId": null
+    "secondaryStrategyId": null,
+    "roughMaxDeckBudgetUsd": "skipped",
+    "roughMaxPerCardBudgetUsd": "skipped",
+    "allowBudgetBusters": "skipped"
   },
   "tertiaryStrategyId": null,
   "hybridRoleModifiers": null,
@@ -85,13 +91,16 @@ Archive-Suggestions has **no** `decks.js`. Find the real app files before editin
 
 - **Required for “plan declared”:** `winConditionId` + `primaryStrategyId`
 - `secondaryStrategyId` optional / skippable
-- `fieldSources` values: `chip-confirmed` | `chip-corrected` | `formal` | `skipped→formal`
+- **Budget fields optional / skippable** — `null` USD = no limit for that dimension
+- `allowBudgetBusters`: user opted in to a few over-budget suggestions when justified
+- `fieldSources` values: `chip-confirmed` | `chip-corrected` | `formal` | `skipped→formal` | `skipped`
 - Last three fields: **v2 hooks** — nullable, unused in v1
 
 ### Wizard questions (exact flow)
 
-All questions are **multiple choice**. Every option has a stable ID from the catalogs below.
-Each question has **Show More Options**. All questions are **skippable**. User can
+Plan/strategy questions are **multiple choice**. Every option has a stable ID from the
+catalogs below. Each question has **Show More Options**. Budget questions use **tier
+pickers** (+ optional custom USD). All questions are **skippable**. User can
 **navigate back** and edit any prior answer at any time.
 
 #### Path A — `deckCardCount < 80`
@@ -104,9 +113,19 @@ Each question has **Show More Options**. All questions are **skippable**. User c
    Options: top 6 from `rankStrategiesForCommander(commander)`, else static fallback;
    full catalog under Show More.
 4. **Secondary strategy (optional)** — “Any secondary theme?” Skip allowed.
+5. **Budget preferences (optional)** — entire step skippable; each sub-question skippable:
+   - **Rough max deck budget** — “About how much do you want to spend on this deck
+     total?” Tier picker (`budget.deck.*`) + optional custom USD; Skip →
+     `roughMaxDeckBudgetUsd = null`
+   - **Rough max per-card budget** — “Rough max for a single suggested card?” Tier picker
+     (`budget.card.*`) + optional custom USD; Skip → `roughMaxPerCardBudgetUsd = null`
+   - **Budget busters** — “OK with a few suggestions above your per-card budget if they're
+     real winners?” Yes (`budget.busters.yes`) / No (`budget.busters.no`) / Skip
+     (defaults to No when per-card budget set; no effect when per-card budget skipped)
 
 Completion for scoring/backfill: win condition + primary strategy set (or user exits early
-without a complete plan — backfill gate stays closed).
+without a complete plan — backfill gate stays closed). Budget fields are optional and do
+not gate plan completion.
 
 #### Path B — `deckCardCount >= 80`
 
@@ -120,6 +139,7 @@ without a complete plan — backfill gate stays closed).
    - Skip or missing chip → run formal question; **pre-fill** from inference if score ≥ min
 4. **Correct** opens the **same** shared picker as the formal question (including Show More).
 5. Optional secondary strategy question once at the end.
+6. **Budget preferences (optional)** — same as Path A step 5.
 
 ### Catalogs (use these exact IDs)
 
@@ -162,6 +182,33 @@ without a complete plan — backfill gate stays closed).
 **Static fallback top 5:** `wincon.combat`, `wincon.commander_damage`, `wincon.combo`,
 `wincon.life_drain`, `wincon.value`
 
+#### Budget tiers (resolve to USD on deck; tier ID in `fieldSources` when not custom)
+
+| ID | Resolved USD |
+|----|--------------|
+| `budget.deck.skip` | `null` (no deck limit) |
+| `budget.deck.50` | `50` |
+| `budget.deck.100` | `100` |
+| `budget.deck.200` | `200` |
+| `budget.deck.500` | `500` |
+| `budget.deck.1000` | `1000` |
+| `budget.deck.custom` | user-entered positive USD |
+
+| ID | Resolved USD |
+|----|--------------|
+| `budget.card.skip` | `null` (no per-card limit) |
+| `budget.card.1` | `1` |
+| `budget.card.3` | `3` |
+| `budget.card.5` | `5` |
+| `budget.card.10` | `10` |
+| `budget.card.25` | `25` |
+| `budget.card.custom` | user-entered positive USD |
+
+| ID | `allowBudgetBusters` |
+|----|----------------------|
+| `budget.busters.no` | `false` |
+| `budget.busters.yes` | `true` |
+
 ### Named constants
 
 | Constant | Value |
@@ -172,11 +219,16 @@ without a complete plan — backfill gate stays closed).
 | `PLAN_CHIP_MAX` | `3` |
 | `PLAN_TAG_SIGNAL_WEIGHT` | `1.0` |
 | `PLAN_ORACLE_SIGNAL_WEIGHT` | `0.5` |
+| `PLAN_BUDGET_BUSTER_MAX` | `2` |
+| `PLAN_BUDGET_BUSTER_MIN_SCORE_PERCENTILE` | `0.85` |
 
 **About `PLAN_INFERENCE_CONFIDENCE_MIN`:** This is a **normalized match score cutoff**
 (0–1), **not** “35% confident the feature works.” If the top-ranked option’s score is
 **below 0.35**, use the static fallback list and do not treat inference as trustworthy
 for chips / pre-fill.
+
+**About `PLAN_BUDGET_BUSTER_MIN_SCORE_PERCENTILE`:** An over-budget card must rank in the
+top `(1 − value)` of scored Adds candidates for that render to qualify as a “real winner.”
 
 ### Ranking algorithms (deterministic)
 
@@ -284,6 +336,26 @@ score. **Equal-weight Plan role** — do not add hybrid role-weight modifiers.
 **Archetype:** When plan fields are set, do **not** use archetype for this plan-backfill
 filter/rank path (declared plan overrides). Do not rewrite the entire recipe engine in v1.
 
+### Budget-aware Adds filtering
+
+Use card USD price from the local DB (same field as entry 7 E term). **Cuts unchanged.**
+
+When `roughMaxPerCardBudgetUsd` is set:
+
+- **Default:** deprioritize candidates above the limit (sort after in-budget peers at equal
+  role score); do not hard-drop unless the pool still fills top N after sort
+- When `allowBudgetBusters = true`: allow up to `PLAN_BUDGET_BUSTER_MAX` over-budget cards
+  in the final top-N only if each meets `PLAN_BUDGET_BUSTER_MIN_SCORE_PERCENTILE` among all
+  scored candidates for that render (“real winners”); never fill more than MAX busters
+- When `allowBudgetBusters = false` or skipped-with-per-card-set: no over-budget cards in
+  final suggestions
+
+When `roughMaxDeckBudgetUsd` is set (optional soft signal):
+
+- Do **not** block suggestions solely for deck total
+- Use as tie-break / mild deprioritization when comparing near-equal Adds scores
+- UI may show an informational note when current deck total already exceeds declared rough max
+
 ### How wizard answers become usable data
 
 | User action | Stored field | Consumed by |
@@ -292,8 +364,11 @@ filter/rank path (declared plan overrides). Do not rewrite the entire recipe eng
 | Pick primary strategy | `primaryStrategyId` | ranking memory, backfill (×2) |
 | Pick secondary strategy | `secondaryStrategyId` | backfill (×1) |
 | Chip confirm/correct | same fields + `fieldSources` | skips re-ask; authoritative |
+| Pick budget tier / custom USD | `roughMaxDeckBudgetUsd`, `roughMaxPerCardBudgetUsd` | Adds filter/rank |
+| Pick budget busters | `allowBudgetBusters` | Adds filter (exception slots) |
 
-No free-text interpretation. Option label is UI; **ID** is the scoreable datum.
+No free-text interpretation beyond optional custom USD number. Option label is UI; **ID /
+resolved number** is the scoreable datum.
 
 ---
 
@@ -319,8 +394,12 @@ No free-text interpretation. Option label is UI; **ID** is the scoreable datum.
 | 5 | All inference scores &lt; 0.35 | Static fallback lists; no overconfident chip |
 | 6 | User skips chip | Formal Q runs, pre-filled if score ≥ 0.35 |
 | 7 | User goes back and edits | Prior answers change; schema updates; later answers preserved |
+| 8 | Per-card budget set, busters off | No suggestions above limit in top 8 |
+| 9 | Per-card budget set, busters on | ≤2 over-budget cards only when score percentile qualifies |
+| 10 | Budget step skipped entirely | Adds behavior unchanged vs no budget fields |
 
-Add debug logging for: inference scores, chip actions, `fieldSources`, `planMatchScore`.
+Add debug logging for: inference scores, chip actions, `fieldSources`, `planMatchScore`,
+budget filter actions.
 
 ---
 
@@ -332,8 +411,10 @@ Add debug logging for: inference scores, chip actions, `fieldSources`, `planMatc
 - [ ] `rankForCommander` / `rankForDeck` with named constants
 - [ ] Semantic→project tag ID mapping table documented in code
 - [ ] Entry 5 Plan-only backfill gate + `planMatchScore` filter/rank
+- [ ] Budget preferences step (optional deck + per-card limits, budget busters)
+- [ ] Budget-aware Adds filtering when limits set
 - [ ] Archetype ignored on plan-backfill path when plan declared
-- [ ] Verification cases 1–7 evidenced in PR (screenshots, logs, or tests)
+- [ ] Verification cases 1–10 evidenced in PR (screenshots, logs, or tests)
 - [ ] PR notes: Step 0 findings (real line numbers, tag ID map)
 
 ---
@@ -344,7 +425,7 @@ Add debug logging for: inference scores, chip actions, `fieldSources`, `planMatc
 2. Path A wizard (commander → wincon → primary)  
 3. Plan backfill gate + `planMatchScore` (**prove Entry 5 payoff early**)  
 4. Path B analysis + chips + shared picker  
-5. Optional secondary + polish + verification log  
+5. Optional secondary + budget preferences + polish + verification log  
 
 ---
 
