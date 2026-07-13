@@ -546,19 +546,19 @@ This approach ensures that:
     scoring to consume through a shared downstream interface.
   - Entry 13 does not redesign entries 7/9/10/11/12 scoring terms.
 - Open questions:
-  - **Structured output schema** — what exact fields does scoring need beyond
-    strategy/archetype IDs in primary/secondary/tertiary slots? (role-weight adjustments,
-    etc.) Partially narrowed by interview decision #20.
-  - **Win condition** — now that plan = strategy/archetype (decision #20), should win
-    condition be captured separately, inferred only, or omitted? See next interview question.
+  - **Structured output schema** — must include strategy/archetype AND win condition per
+    interview decision #20 (revised). Remaining: unified vs separate fields (decision #21
+    pending), plus role-weight adjustments if any.
+  - **Win condition capture shape** — resolved in principle (part of plan); intake UX TBD
+    (decision #21).
   - **"Sufficient cards" threshold** — how many cards before deck-analysis-first path kicks
     in?
   - **Deck analysis observations** — what signals does the system surface before asking
     questions? (archetype detection, tag clustering, etc.)
   - **Experience-level branching** — exact question sets per Beginner/Intermediate/Advanced.
-  - **Multiple-choice option catalog** — which strategy/archetype categories ship in v1?
-    "Show More Options" expansion set. (Win-condition catalog no longer primary axis per
-    decision #20.)
+  - **Multiple-choice option catalog** — strategy/archetype AND win-condition categories
+    (or unified mission-statement options) for v1; "Show More Options" expansion set.
+    Shaped by decisions #20–21.
   - **Dynamic role weighting vs equal-weight Plan fallback** — which path is feasible for
     v1 once schema is mapped to scoring?
   - How does declared plan interact with archetype detection — override, inform, or run
@@ -602,7 +602,7 @@ user-confirmed answer; do not reinterpret without confirmation.
 
 | # | Question | Answer | Design implication |
 |---|----------|--------|-------------------|
-| 20 | When the wizard asks for **Primary plan**, what kind of thing is the user identifying? | **A — Deck strategy / archetype** (e.g. Tokens, Sacrifice, Spellslinger, Reanimator, Voltron, Landfall) | Wizard multiple-choice catalog is strategy/archetype categories. Schema stores strategy IDs in Primary/Secondary/Tertiary plan slots. Plan backfill and scoring consume strategy identity, not a separate win-condition axis. |
+| 20 | When the wizard asks for **Primary plan**, what kind of thing is the user identifying? | **Revised (2026-07-13): Strategy/archetype AND win condition** — plan dictates how the deck will win. Supersedes initial answer A (strategy only). User cited Marshall Sutcliffe, ["My Most Important Deck-Building Rule"](https://magic.wizards.com/en/news/feature/my-most-important-deck-building-rule-2018-02-08): every deck needs a mission statement combining strategy and win method. | Schema and wizard must capture both dimensions of "plan." Exact intake shape TBD — see interview question #21 (unified mission statement vs separate picks). Plan backfill/scoring should use both strategy identity and win method when ranking/filtering. |
 
 **Design philosophy summary:** ensure the deck is fundamentally healthy first, then help
 make it uniquely *this* deck. Functional roles are essential; Plan gives personality. The
