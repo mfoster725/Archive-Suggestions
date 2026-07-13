@@ -553,8 +553,9 @@ This approach ensures that:
     modifiers and Cuts shielding.
   - **Deck analysis observations** — settled (#25–26).
   - **Experience-level branching** — exact question sets per Beginner/Intermediate/Advanced.
-  - **Multiple-choice option catalog** — separate strategy/archetype and win-condition
-    category lists for v1; "Show More Options" expansion set.
+  - **Multiple-choice option catalog** — scope decided (#31): dynamic top ~5–6 for strategy
+    and win condition; full lists via "Show More Options." v1 static fallback when ranking
+    confidence low. Exact full-catalog IDs TBD in Fix scoped prompt.
   - **Scoring integration** — v1/v2 split decided (#30): v1 equal-weight Plan +
     plan-aware backfill; **v2 hybrid modifiers (#27) and Cuts (#29) still required.**
   - How does declared plan interact with archetype — **decided** (#28).
@@ -609,13 +610,96 @@ user-confirmed answer; do not reinterpret without confirmation.
 | 30 | v1 scoring integration — how does declared plan affect Adds first? | **D — Phased** (agent recommendation accepted): **v1 = B** (equal-weight Plan role + plan-aware Plan backfill); **v2 = A** (hybrid bounded role-weight modifiers per #27). See **v1 / v2 scope** below. | **v1 ships:** wizard + schema; equal-weight Plan deficit in Adds; plan-aware Plan backfill (unblocks entry 5); declared plan overrides archetype for plan-related recipe/backfill paths; schema hooks for v2. **v2 required:** hybrid role-weight nudges (#27), Cuts plan-awareness (#29), and any deferred catalog depth. v1 alone is **not** the final scoring model. |
 | 31 | v1 strategy/archetype catalog scope? | **C + dynamic caveat** — minimal **~5–6 primary** options (not a fixed global list); full catalog via "Show More Options." **≥80 cards:** top 5–6 ranked by **deck analysis**. **&lt;80 cards:** user confirms **commander** first (if not already set); top 5–6 ranked by **commander affinity** lookup. **Win condition** picker gets the **same dynamic treatment** (analysis or commander). User confirmed 2026-07-13. | v1 wizard needs: `rankStrategiesForDeck`, `rankStrategiesForCommander`, `rankWinConditionsForDeck`, `rankWinConditionsForCommander`; commander confirmation step on &lt;80 path before plan questions; static fallback primary list when confidence low. Feasibility for v1 — see interview note below #31 in **v1 / v2 scope**. |
 
-#### v1 / v2 scope (Entry 13 — user-confirmed via interview #29–31)
+#### v1 / v2 scope (Entry 13 — user-confirmed via interview #29–31; feasibility trim 2026-07-13)
+
+**Context:** `main` has Entry 13 design decisions #1–19 (wizard concept, no runtime AI).
+PR #2 adds interview decisions #20–31 and design-interview methodology. v1 below is the
+**feasible MVP** — enough to unblock entry 5 and improve Adds; v2 completes the vision.
+
+##### v1 MVP — ship this (one implementation prompt)
+
+**A. Plan schema & persistence**
+- `winConditionId` (deck-wide, required for wizard completion)
+- `primaryStrategyId` (required for wizard completion)
+- `secondaryStrategyId` (optional, skippable)
+- v2 hooks on schema for: `tertiaryStrategyId`, hybrid modifiers, Cuts shielding
+- Per-field `source` metadata (`chip-*`, `formal`, etc.) for debugging
+
+**B. Wizard — core flow (both paths)**
+- Multiple-choice pickers + "Show More Options" + all questions skippable (#7)
+- Back navigation to edit any prior answer (#26)
+- Two question types: win condition, then strategy (#21–22) — win condition once per deck
+- **&lt;80 cards:** confirm commander if missing → mission-statement-first (#23–24)
+- **≥80 cards:** lightweight deck analysis → **simplified observations** (see C below)
+- **Completion:** wizard done when win condition + primary strategy are set (or user exits
+  early); optional secondary strategy question offered once — no tertiary in v1
+
+**C. Analyze-first path (≥80 cards) — v1 simplified chips**
+- Run deterministic deck analysis (tag clustering / role-tag ratios — reuse existing tags)
+- Show **at most 3 observation chips:** inferred win condition, inferred primary strategy,
+  optional archetype hint
+- Chip behavior per #26: confirm/correct skips formal Q; skip → formal Q pre-filled;
+  Correct uses shared picker
+- **Defer to v2:** chips for secondary/tertiary strategy; rich multi-signal observation panel
+
+**D. Dynamic picker ordering (#31) — v1 pragmatic**
+- Top ~5–6 options ranked before "Show More Options" for **both** strategy and win condition
+- **≥80 cards:** rank from deck-analysis signals (same engine as chips)
+- **&lt;80 cards:** rank from **commander oracle keyword rules** (sacrifice, token, cast, etc.)
+- Full catalog: **~15 strategies + ~8 win conditions** in v1 (not ~30); expand in v2
+- **Static fallback** primary list when confidence low (always show something sensible)
+- **Defer to v2:** curated explicit commander→affinity table for top 200+ commanders;
+  win-condition inference accuracy tuning
+
+**E. Adds integration — the v1 payoff**
+- **Equal-weight Plan role** in Adds scoring (#30) — no hybrid role nudges
+- **Plan-aware backfill** (unblocks entry 5): allow unowned fetch on Plan-only deficits;
+  filter/rank by declared `winConditionId` + `primaryStrategyId` (+ `secondaryStrategyId`
+  when set)
+- Declared plan **overrides archetype** for plan-related backfill/filter paths only (#28) —
+  do not rewrite full recipe engine in v1
+
+**F. Explicitly out of v1**
+- Hybrid role-weight modifiers (#27)
+- Cuts plan-awareness (#29)
+- Experience-level branching (#3 — Beginner/Intermediate/Advanced): **single wording in v1**
+- Tertiary strategy slot
+- Optional free-text plan notes
+- Multi-role recommendation explanations in UI (#16)
+- Full "answer more for stronger recommendations" continue loop (#8) — v1: simple Done +
+  optional secondary strategy step
+
+##### v2 — required follow-up (documented, not optional polish)
+
+| Area | v2 work |
+|------|---------|
+| **Scoring** | Hybrid bounded role-weight modifiers (#27); veggies-first preserved |
+| **Cuts** | Plan-aware shielding for strategy-aligned cards (#29) |
+| **Wizard depth** | Tertiary strategy; experience-level branching; richer completion/continue UX (#8) |
+| **Analysis UX** | More observation chips; secondary/tertiary inference; calibration |
+| **Catalogs** | Expand to ~30+ strategies; commander explicit-affinity table; ranking tuning |
+| **Presentation** | Multi-role card explanations (#16); optional display-only notes |
+
+##### Suggested implementation order (v1)
+
+1. Schema + persistence
+2. Minimal wizard (&lt;80 path first — commander → win con → primary strategy)
+3. Plan-aware backfill (entry 5) — **validate payoff early**
+4. ≥80 analysis + simplified chips + dynamic picker ordering
+5. Secondary strategy (optional step) + archetype override for backfill
 
 **v1 deliverables (Fix scoped target):**
-- Guided plan wizard (decisions #20–26): structured intake, chips on ≥80-card decks,
-  shared picker, always-editable back navigation.
+- Guided plan wizard (decisions #20–26, #31): structured intake, chips on ≥80-card decks,
+  shared picker, always-editable back navigation, **dynamic top ~5–6** strategy and win-
+  condition options (analysis- or commander-ranked).
+- **&lt;80-card path:** confirm/set **commander** before plan questions if not already known;
+  commander affinity ranks primary picker options (#31).
 - Plan schema: `winConditionId` (deck-wide) + `strategyId` per Primary/Secondary/Tertiary
   slot; hooks reserved for v2 (hybrid modifiers, Cuts shielding).
+- **Dynamic catalog ranking (v1):** deterministic commander-affinity tables + deck-analysis
+  heuristics (reuse chip inference signals); full catalog (~30 strategies, ~8–10 win
+  conditions) under "Show More Options"; **static fallback** primary list when ranking
+  confidence is low.
 - **Adds scoring (v1):** equal-weight Plan role — Plan deficits compete at the same tier as
   functional roles; no hybrid role-weight nudges yet.
 - **Plan backfill (entry 5):** filter/rank unowned Plan candidates by declared strategy +
@@ -628,8 +712,9 @@ user-confirmed answer; do not reinterpret without confirmation.
   functional role weights; veggies-first priority ordering preserved.
 - **Cuts plan-awareness** (interview #29): shield or penalize cuts against cards core to
   declared strategies; schema hooks laid in v1.
-- Deeper option catalogs, experience-level branching refinements, and calibration passes as
-  needed once v1 is live.
+- **Catalog depth & ranking quality:** expand commander explicit-affinity coverage; improve
+  win-condition inference accuracy; calibration passes; experience-level branching
+  refinements.
 
 **Design philosophy summary:** ensure the deck is fundamentally healthy first, then help
 make it uniquely *this* deck. Functional roles are essential; Plan gives personality. The
