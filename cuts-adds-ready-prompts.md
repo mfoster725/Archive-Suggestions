@@ -22,12 +22,12 @@ explicitly intend parallel work).
 | **1** | Coordinated Adds scoring rebalance | 7, 9, 10, 11, 12 | Rebuilds how Adds **ranks** cards (formulas/constants). Foundation for later ranking of plan backfill. Single agent task — not five PRs. |
 | **2** | Deck plan wizard + plan-aware backfill | 13 v1 (+ 5) | Wizard UI + plan schema + Plan-only unowned fetch. Consumes Adds scoring as-is (equal-weight Plan). Better after #1 so backfill candidates use the new score terms. |
 | **3** | Adds curve includes commander CMC | 1 | Confirmed bug: Adds curve buckets omit commander CMC; Cuts includes it. Small, isolated `_computeAddContext` fix. Prefer after #1 so C / C_eff consume the corrected curve. Safe to parallel with #2 if neither lands conflicting edits to the same curve-bucket block. |
+| **4** | Collection / All Cards pool toggle | 6 | Pool-mode UI replacing owned-first hybrid gathering. **Do not run before #2** — interview #5 keeps Prompt 2's Entry 5 hybrid backfill intact; Entry 6 is a later layer. Prefer after #1 so All Cards rankings use rebalanced scores. Safe to parallel #3 (different surface: pool vs curve buckets). |
 
 ### Not in this doc yet (not Prompt drafted)
 
 | Entry | Status | Note |
 |-------|--------|------|
-| 6 — Owned/All Cards toggle | Fix scoped (partial) | Owned mode only; All Cards data source unresolved. |
 | 13 v2 / Cuts plan / hybrid modifiers | Design only | After 13 v1 ships. |
 
 ---
@@ -42,7 +42,7 @@ explicitly intend parallel work).
 
 ---
 
-# Prompt 1 of 3 — Coordinated Adds scoring rebalance (entries 7 / 9 / 10 / 11 / 12)
+# Prompt 1 of 4 — Coordinated Adds scoring rebalance (entries 7 / 9 / 10 / 11 / 12)
 
 ```
 # Adds scoring rebalance — entries 7, 9, 10, 11, 12 (single coordinated pass)
@@ -243,7 +243,7 @@ term logs (off in normal production UX). Soft cases use logs + PR notes.
 
 ---
 
-# Prompt 2 of 3 — Entry 13 v1 + Entry 5 (plan wizard + plan-aware backfill)
+# Prompt 2 of 4 — Entry 13 v1 + Entry 5 (plan wizard + plan-aware backfill)
 
 Canonical twin file (keep in sync): [`entry-13-v1-implementation-prompt.md`](./entry-13-v1-implementation-prompt.md)
 
@@ -533,7 +533,7 @@ Log inference scores, chip actions, fieldSources, planMatchScore, budget filter 
 
 ---
 
-# Prompt 3 of 3 — Adds curve includes commander CMC (entry 1)
+# Prompt 3 of 4 — Adds curve includes commander CMC (entry 1)
 
 ```
 # Adds curve — include commander CMC (entry 1)
@@ -615,6 +615,130 @@ Step 0.
 - No Cuts / other scoring-term edits
 - Step 0 findings (anchors + whether shared helper existed) in PR notes
 - Hard cases 1–3 evidenced (test or logged before/after)
+```
+
+---
+
+# Prompt 4 of 4 — Collection / All Cards pool toggle (entry 6)
+
+```
+# Adds pool toggle — Collection / All Cards (entry 6)
+
+**Prereq:** Prefer Prompt 1 merged (better All Cards rankings). Prefer Prompt 2 merged
+so Entry 5's plan-aware hybrid backfill exists before this prompt replaces the hybrid
+owned→backfill gathering UX with an explicit toggle. **Do not start this before Prompt 2
+if Prompt 2 is still in flight** — Entry 6 must not rewrite Prompt 2's wizard/schema/Entry 5
+gate text; it layers pool modes afterward. Safe to parallel Prompt 3 (commander CMC curve).
+
+## Hard constraint
+Deterministic algorithm only — no runtime LLM, embeddings, or other AI/ML inference.
+
+## Context
+Today Adds is owned-focused: owned collection first, then deficit-gated unowned backfill
+from `/api/cards/by-roles` (local DB only; never live Scryfall; `tribes: []`).
+
+Entry 6 replaces that hybrid gathering UX with an explicit Adds-panel toggle:
+
+| UI label | Pool behavior |
+|----------|----------------|
+| **Collection** | Owned collection only. **Never** call server backfill, regardless of deficits. |
+| **All Cards** | Always score **full local DB ∩ format + commander color identity** (plus existing "not already in deck" / free-copy style filters). **No** live Scryfall. **No** deficit-gated server backfill in this mode. Rank by **score only** (no owned-first). |
+
+Verify line anchors before editing (may have drifted):
+- `_renderAddSuggestions` (~decks.js:6623) — pool assembly, owned-first, backfill gate
+- Unowned / Plan-only deficit gate (~decks.js:6679) — Prompt 2 may have changed this
+- `/api/cards/by-roles` (or successor) — backfill endpoint (local DB)
+- Existing user preference / settings persistence patterns (for toggle memory)
+
+## Locked design decisions (Entry 6 interview — do not re-open)
+1. All Cards = local DB catalog only (not live Scryfall; not "every printed card offline").
+2. All Cards ranks by score only — disable owned-first / owned boost.
+3. Remember last choice; first-ever visit defaults to **Collection**.
+4. Persist preference: **server-synced per-user** if the app already has that pattern;
+   else **per-user global** client persistence. Not per-deck. Not session-only.
+5. Do **not** change Prompt 1 scoring terms or Prompt 2 wizard/Entry 5 hybrid gate
+   as a dependency of this work. This prompt implements the toggle layer; if Prompt 2
+   already shipped, Collection simply never backfills and All Cards uses the full local
+   pool (Entry 5's Plan-only fetch gate may become unused while All Cards is active —
+   document that; do not rip out plan schema / wizard / planMatchScore).
+6. UI labels: **Collection** / **All Cards**.
+
+## Goal
+Ship the Collection / All Cards toggle on the Adds panel with the pool + persistence
+behaviors above. Candidate-pool change only — do not retune scoring formulas.
+
+## Step 0 — Repo discovery (do first; document in PR)
+1. Trace how Adds currently builds the candidate list (owned filter, owned-first sort,
+   deficit gate, `/api/cards/by-roles` backfill).
+2. Confirm local DB access path for "all format + CI legal cards" without live Scryfall.
+3. Find existing **user preference** persistence (server-synced settings vs localStorage).
+   Choose D-then-A per interview #4; document which path you used and why.
+4. Confirm Prompt 2 status in this repo: if Entry 5 gate exists, note how Collection /
+   All Cards should interact without deleting wizard/plan fields.
+5. Confirm color-identity + "not in deck" filters still apply in both modes.
+
+## Change
+
+### UI
+- Adds panel control with two modes labeled **Collection** and **All Cards**.
+- Switching modes recomputes suggestions with the matching pool rules.
+- Persist selection per interview #3–4; first paint = Collection until a stored choice
+  exists.
+
+### Collection mode
+- Candidate pool = owned collection only (existing ownership / free-copy rules).
+- **Do not** call unowned / server backfill for any deficit state (including Plan-only).
+- Sorting within the owned pool: existing score order is fine (owned-first is redundant
+  when every candidate is owned).
+
+### All Cards mode
+- Candidate pool = local DB ∩ format legality ∩ commander color identity ∩ not already
+  in deck (and any other existing non-ownership legality filters).
+- **Do not** use deficit-gated backfill to grow the pool — the local DB **is** the pool.
+- **Do not** apply owned-first sort or owned boost; sort by Adds score only (top 8).
+- Still never live Scryfall. Keep `tribes: []` if any residual by-roles call remains;
+  prefer not calling backfill at all in this mode.
+
+### Scoring / gates to preserve
+- Reuse `_scoreAddCandidate` (and Prompt 1 terms if present) unchanged.
+- Keep `CK_REQUIRED_ENABLERS` hard gate.
+- Keep top 8 (`_ADD_SUGGESTION_COUNT`).
+- Do not touch Cuts.
+
+## Do NOT touch
+- Prompt 1 scoring formulas/constants (except consuming them as-is)
+- Prompt 2 deck-plan wizard, plan schema, or Entry 5 gate implementation details —
+  do not reopen or rewrite that prompt; only adapt pool gathering for the new modes
+- Cuts scoring / Cuts UI
+- Entry 1 curve-bucket logic (Prompt 3) unless an unavoidable shared helper conflict
+  appears — prefer not
+- Live Scryfall / EDHREC scrape
+- `tribes: []` intentional empty send
+- Runtime AI/LLM
+
+## Verification
+
+### Hard (must pass)
+| # | Case | Expected |
+|---|------|----------|
+| 1 | Mode = Collection, Plan-only or role deficit | Suggestions ⊆ owned; **no** `/api/cards/by-roles` (or successor) backfill call |
+| 2 | Mode = All Cards | Top 8 may include unowned local-DB cards; order is score-only (owned card must not outrank higher-scoring unowned solely due to ownership) |
+| 3 | First-ever user (no saved pref) | Control initializes to **Collection** |
+| 4 | User selects All Cards, reloads Adds | Mode restores to **All Cards** (synced pref if available, else per-user global) |
+| 5 | All Cards pool | Every suggestion is format + color-identity legal and from local DB (no live Scryfall) |
+
+### Soft (PR write-up)
+| # | Case | Expectation |
+|---|------|-------------|
+| 6 | Prompt 2 Entry 5 already merged | Wizard/plan fields still work; document how Collection/All Cards relate to the old hybrid backfill gate |
+| 7 | Large local DB | All Cards remains usable (note any pagination/caps you needed; do not silently fall back to owned-only) |
+
+## Deliverables
+- Adds UI toggle: **Collection** / **All Cards**
+- Pool behavior per mode (including no backfill in Collection; full local DB in All Cards)
+- Preference persistence (server-synced per-user if possible, else per-user global)
+- Step 0 findings (anchors, prefs path chosen, Prompt 2 interaction notes)
+- Hard cases 1–5 evidenced in PR
 ```
 
 ---
