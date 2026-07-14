@@ -204,19 +204,20 @@ This approach ensures that:
 - Constraints: Adds-only, do not touch Cuts. Do not touch quirk #4 (`tribes: []`,
   intentional). Do not touch the `CK_REQUIRED_ENABLERS` hard gate (15 qty-weighted
   enablers). This is a candidate-pool change, not a scoring-formula change — preserve
-  existing scoring terms inside whichever mode is active (owned-first sort may change
-  depending on interview outcomes below).
+  existing scoring terms inside whichever mode is active. **Catalog mode sorts by score
+  only** (interview #2) — no owned-first.
 - Design interview (Entry 6):
 
 | # | Question | Decision | Design implication |
 |---|----------|----------|--------------------|
 | 1 | What is "All Cards" mode's main job? | **Local DB catalog** — open recommendations beyond owned to **all cards in the local DB** (format/CI legal). User not particular about the control's label. Closes prior open question: **not** live Scryfall / not "every printed card." | Pool = local DB ∩ format + commander color identity. Keep "never live Scryfall." Label can be "All Cards," "Catalog," etc. — decide later or leave to implementer with a sensible default. |
+| 2 | In catalog mode, does ownership affect ranking? | **A — Score only.** Ignore ownership; pure score order (top 8). | Catalog mode: disable owned-first sort / owned boost. Owned mode: ownership is the pool filter itself (no need for owned-first). |
 
 - Open questions (remaining):
-  - In catalog mode, should ownership still affect **sort** (owned-first) or only the pool?
   - Default mode on first visit?
   - Toggle persistence (per deck / per user / session)?
   - How catalog mode interacts with Entry 5 plan-aware unowned/server backfill?
+  - Final control label (low priority — user not wedded to a name).
 
 ### 7. Incorporate EDHREC rank into Cuts/Adds scoring
 - Status: Needs investigation
