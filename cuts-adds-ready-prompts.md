@@ -21,12 +21,12 @@ explicitly intend parallel work).
 |------:|--------|-----------------|----------------|
 | **1** | Coordinated Adds scoring rebalance | 7, 9, 10, 11, 12 | Rebuilds how Adds **ranks** cards (formulas/constants). Foundation for later ranking of plan backfill. Single agent task — not five PRs. |
 | **2** | Deck plan wizard + plan-aware backfill | 13 v1 (+ 5) | Wizard UI + plan schema + Plan-only unowned fetch. Consumes Adds scoring as-is (equal-weight Plan). Better after #1 so backfill candidates use the new score terms. |
+| **3** | Adds curve includes commander CMC | 1 | Confirmed bug: Adds curve buckets omit commander CMC; Cuts includes it. Small, isolated `_computeAddContext` fix. Prefer after #1 so C / C_eff consume the corrected curve. Safe to parallel with #2 if neither lands conflicting edits to the same curve-bucket block. |
 
 ### Not in this doc yet (not Prompt drafted)
 
 | Entry | Status | Note |
 |-------|--------|------|
-| 1 — Commander CMC in Adds curve | Fix scoped | Ready for a prompt when you ask; intentionally separate from #1 above unless you bundle. |
 | 6 — Owned/All Cards toggle | Fix scoped (partial) | Owned mode only; All Cards data source unresolved. |
 | 13 v2 / Cuts plan / hybrid modifiers | Design only | After 13 v1 ships. |
 
@@ -42,7 +42,7 @@ explicitly intend parallel work).
 
 ---
 
-# Prompt 1 of 2 — Coordinated Adds scoring rebalance (entries 7 / 9 / 10 / 11 / 12)
+# Prompt 1 of 3 — Coordinated Adds scoring rebalance (entries 7 / 9 / 10 / 11 / 12)
 
 ```
 # Adds scoring rebalance — entries 7, 9, 10, 11, 12 (single coordinated pass)
@@ -243,7 +243,7 @@ term logs (off in normal production UX). Soft cases use logs + PR notes.
 
 ---
 
-# Prompt 2 of 2 — Entry 13 v1 + Entry 5 (plan wizard + plan-aware backfill)
+# Prompt 2 of 3 — Entry 13 v1 + Entry 5 (plan wizard + plan-aware backfill)
 
 Canonical twin file (keep in sync): [`entry-13-v1-implementation-prompt.md`](./entry-13-v1-implementation-prompt.md)
 
@@ -529,6 +529,92 @@ Log inference scores, chip actions, fieldSources, planMatchScore, budget filter 
 3. Plan backfill (prove Entry 5 early)
 4. Path B chips + shared picker
 5. Optional secondary + budget preferences + polish
+```
+
+---
+
+# Prompt 3 of 3 — Adds curve includes commander CMC (entry 1)
+
+```
+# Adds curve — include commander CMC (entry 1)
+
+## Context
+**Confirmed bug** (project quirk #2): Cuts includes the commander when building mana-curve
+buckets; Adds excludes it. Curve-gap bonus (C / C_eff) therefore sees a different curve
+than Cuts for the same deck.
+
+Verify line anchors before editing (may have drifted):
+- Adds curve / `_computeAddContext` (~decks.js:6274) — where Adds builds CMC buckets
+- Cuts curve construction (~decks.js:6460–6473) — reference for “include commander CMC”
+- Ideal curve helper if shared: `_computeIdealManaCurveContext` (~decks.js:7126)
+- C term use: `_scoreAddCandidate` (~decks.js:6489) — read-only for this task
+
+## Goal
+Make **Adds** include the commander’s CMC in the same curve-bucket construction Cuts uses,
+so Adds’ curve-gap scoring reflects the full deck the same way Cuts does.
+
+**Hard constraint:** Deterministic algorithm only — no runtime AI/LLM/ML inference.
+
+## Locked design decisions (do not re-open)
+- **Adds should match Cuts** on commander inclusion in curve calc (user-directed).
+- Touch **only** Adds curve-bucket construction (in / feeding `_computeAddContext`).
+- Do **not** change Cuts curve logic.
+- Do **not** change other Adds scoring terms (D, M, L, E, B, P, V, T, K) or their weights.
+- Do **not** retarget who “owns” multi-need credit — this is curve input only, not D/V.
+
+## Step 0 — Repo discovery (do first; document in PR)
+1. Read Cuts’ curve-bucket construction — how/where commander CMC is added to buckets.
+2. Read Adds’ `_computeAddContext` curve construction — confirm commander CMC is omitted.
+3. Confirm whether both sides share `_computeIdealManaCurveContext` or duplicate logic.
+4. Note the exact CMC bucketing rules (land exclusion, tokens, X-costs, commander zone
+   source). Match Cuts’ existing rules; do not invent new bucket semantics.
+5. Confirm C / C_eff still consumes the curve-gap context this function builds (after
+   Prompt 1 if already merged).
+
+## Change
+1. In Adds’ curve-bucket construction, **count the commander’s CMC** into the appropriate
+   bucket, using the **same inclusion rules Cuts already uses** (same CMC value source,
+   same X handling if Cuts has one, same commander object lookup).
+2. Prefer a shared helper if Cuts/Adds already share one and Adds simply skips the
+   commander argument — fix by passing/including commander consistently.
+3. If Adds duplicates Cuts’ loop and omits commander: add the commander CMC bucket step
+   to match Cuts line-for-line in behavior (not necessarily copy-paste structure).
+4. Leave scoring-term formulas untouched; only the curve context feeding C changes.
+
+## Do NOT touch
+- Cuts curve logic (beyond reading it as the behavioral reference)
+- Other Adds scoring terms / constants from Prompt 1 (7 / 9 / 10 / 11 / 12)
+- Entry 13 plan wizard / plan schema / Entry 5 backfill gate
+- Entry 6 owned/all-cards candidate pool
+- `tribes: []`, `CK_REQUIRED_ENABLERS`
+- Candidate pool filters, owned-first sort, top-8 count
+- Live Scryfall / EDHREC scrape
+- Runtime AI/LLM
+
+## Verification
+
+### Hard (must pass)
+| # | Case | Expected |
+|---|------|----------|
+| 1 | Commander CMC = 4, non-land list otherwise identical | Adds curve bucket for CMC 4 is **+1** vs pre-fix (commander counted once) |
+| 2 | Same deck, Compare Adds vs Cuts curve buckets for non-land CMCs | **Commander CMC bucket matches** Cuts’ inclusion of commander (same count contribution) |
+| 3 | High-CMC commander (e.g. 6+) on a curve short at that slot | C / C_eff for a candidate filling that slot **moves** vs pre-fix in the direction implied by the corrected gap (document before/after term log) |
+
+### Soft (PR write-up)
+| # | Case | Expectation |
+|---|------|-------------|
+| 4 | Partner already merged Prompt 1 (C_eff / L) | C_eff still uses corrected buckets; L / efficiency-mode tagging unchanged |
+| 5 | Token / land / multi-faced edge cases | Follow Cuts’ existing treatment; document any remaining intentional asymmetry |
+
+**Verification delivery:** before/after curve-bucket dump (debug or test) for at least one
+fixed test deck; assert commander CMC counted once on Adds; note line anchors found in
+Step 0.
+
+## Deliverables
+- Adds curve-bucket construction includes commander CMC, matching Cuts behavior
+- No Cuts / other scoring-term edits
+- Step 0 findings (anchors + whether shared helper existed) in PR notes
+- Hard cases 1–3 evidenced (test or logged before/after)
 ```
 
 ---
