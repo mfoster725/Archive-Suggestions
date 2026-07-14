@@ -28,6 +28,7 @@ explicitly intend parallel work).
 
 | Entry | Status | Note |
 |-------|--------|------|
+| 2 | Root cause confirmed (spec); interview #1 pending | Plan-count token exclusion — Adds should likely match Cuts; see backlog Entry 2. |
 | 13 v2 / Cuts plan / hybrid modifiers | Design only | After 13 v1 ships. |
 
 ---

@@ -133,16 +133,52 @@ This approach ensures that:
 - Open questions: none
 
 ### 2. Plan-count token exclusion asymmetry
-- Status: Needs investigation
+- Status: **Root cause confirmed (spec-level)** — repo verify at implement time; **fix direction
+  pending user interview #1** (2026-07-14)
 - Side: Both (asymmetry between them)
-- Symptom: none observed yet directly — flagged from spec, not from a concrete bad suggestion
+- Symptom: none observed yet directly — flagged from spec, not from a concrete bad suggestion.
+  Predicted symptom when tokens are present: Adds under-reports Plan deficit (or skips Plan
+  suggestions / Plan-only backfill) because untagged token cards inflate Adds' Plan count while
+  Cuts ignores them.
 - Suspected cause: Cuts' candidate pool excludes tokens; Adds' Plan-count filter doesn't (decks.js:6294 vs 6462)
-- Confirmed cause: not yet — need to check whether this is actually causing visible bad
-  suggestions before treating it as worth fixing
-- Proposed fix: TBD, pending investigation and a decision on which behavior is "correct"
-- Constraints: unclear whether this is intentional; do not assume it's a bug
-- Open questions: does the user have a deck where token count is high enough that this
-  would visibly change Plan-count math? Need a concrete case to justify prioritizing this.
+- Confirmed cause: **Yes at spec level** (quirk #1 + domain model). Cuts builds its candidate
+  pool as `deck cards minus commander/tokens/lands` (`_suggestCardsToCut`), so Plan-count on
+  the Cuts side only considers non-token, non-land, non-commander cards. Adds' Plan-count /
+  deficit logic (~`_computeAddContext` / ~6294) counts roleless cards without the same token
+  exclusion — any **untagged token card in the 99** is counted as Plan on Adds only. **Code
+  anchors unverified in-repo** (Archive-Suggestions has no `decks.js`; implementing agent must
+  confirm line numbers and exact filter predicate before editing).
+- Investigation notes (2026-07-14):
+  - **What "Plan" means:** cards with no utility role tag; baseline recipe target Plan 30.
+  - **Mechanism:** asymmetry is indirect on Cuts (token exclusion is a candidate-pool rule,
+    not a dedicated Plan-count rule) vs direct gap on Adds (Plan tally likely includes tokens).
+  - **Typical decks:** 0 token cards in the 99 → **no practical delta**; low priority unless
+    Entry 13 Plan-aware backfill is live and Plan deficit accuracy matters more.
+  - **Edge-case decks:** lists with Treasure / Clue / Food / Embalm / God-Eternal token copies,
+    or other token cards sitting in the mainboard. Example math: 60 utility-tagged, 5 untagged
+    tokens, 35 other untagged → Cuts Plan = 35, Adds Plan = 40 → Adds sees 5 fewer Plan deficit
+    than Cuts would imply.
+  - **Interaction with Entry 13 / 5:** once Plan-only unowned fetch ships, an inflated Adds Plan
+    count can wrongly suppress Plan backfill for token-inclusive lists.
+  - **Parallel to Entry 1:** same pattern — Cuts behavior is the reference; Adds should align
+    unless user explicitly chooses otherwise.
+- Proposed fix: **Pending interview #1.** Leading candidate: **Adds excludes tokens from
+  Plan-count the same way Cuts excludes them from its pool** — one shared helper or mirrored
+  predicate (`!isToken(card)`), touch only Adds Plan tally (~6294 / `_computeAddContext`), do
+  not change Cuts candidate pool or other Adds scoring terms.
+- Constraints: do not change Cuts. Do not assume bug until user confirms interview #1. If fix
+  ships, keep token exclusion consistent anywhere else Adds counts "deck cards for recipe" (audit
+  in Step 0). Lands and commander already handled elsewhere — match existing Cuts exclusions.
+- Design interview (Entry 2):
+
+| # | Question | Decision | Design implication |
+|---|----------|----------|--------------------|
+| 1 | Should **token cards in the 99** count toward the Plan role tally (untagged = Plan)? | **TBD — user** | **A — No (match Cuts):** exclude tokens from Adds Plan-count; smallest scoped fix. **B — Yes:** document as intentional; update quirk #1 to INTENTIONAL and close entry. **C — Split:** count only some token types (higher complexity; needs explicit rules). |
+
+- Open questions:
+  - Interview #1 (above) — blocks **Fix scoped** / prompt draft.
+  - Optional: concrete deck where token count changed suggestions (nice-to-have, not required
+    if user picks A).
 
 ### 3. `_deckSwapsEnabled(deck)` signature mismatch
 - Status: Flag only — not currently scheduled as a fix
