@@ -120,7 +120,7 @@ This approach ensures that:
 ## Backlog
 
 ### 1. Adds curve calc excludes commander CMC
-- Status: **Prompt drafted** (2026-07-14) — **Runnable copy:** Prompt **3 of 3** in
+- Status: **Prompt drafted** (2026-07-14) — **Runnable copy:** Prompt **3 of 4** in
   [`cuts-adds-ready-prompts.md`](./cuts-adds-ready-prompts.md). Prefer after Prompt 1
   (scoring rebalance); safe to parallel with Prompt 2 if curve-bucket edits don't collide.
 - Side: Adds
@@ -189,25 +189,42 @@ This approach ensures that:
     practice.
 
 ### 6. Owned/All Cards toggle for Adds
-- Status: **Fix scoped** (Owned mode only — "All Cards" mode has an unresolved data-source
-  question, see Open questions; prompt drafted phases the work accordingly)
+- Status: **Prompt drafted** (2026-07-14) — **Runnable copy:** Prompt **4 of 4** in
+  [`cuts-adds-ready-prompts.md`](./cuts-adds-ready-prompts.md). **Order:** keep after
+  Prompt 2 (do not move up past Entry 13/Entry 5); prefer after Prompt 1; safe to
+  parallel Prompt 3. Does **not** modify ready Prompts 1–2 text.
 - Side: Adds
-- Symptom: n/a — feature request. User wants a toggle on the Adds panel between "Owned"
-  (only cards the user owns) and "All Cards" (all cards legal for the format and
-  commander, regardless of ownership).
-- Proposed fix: Add a UI toggle for the Adds panel with two modes:
-  - **Owned**: candidate pool is the user's owned collection only — no server backfill
-    call at all, regardless of deficit state.
-  - **All Cards**: candidate pool is every format/commander-legal card in existence,
-    independent of ownership. Exact data source TBD (see Open questions).
+- Symptom: n/a — feature request. Recommendations today are owned-focused; user wants a
+  second mode that opens the Adds pool to the local card DB (UI: **Collection** /
+  **All Cards** — interview #6).
+- Proposed fix: Add a UI toggle on the Adds panel with two modes:
+  - **Collection** (internal: owned pool): candidate pool = user's owned collection
+    only — **no** server backfill, regardless of deficit state.
+  - **All Cards** (internal: catalog / local-DB pool): always score **full local DB ∩
+    format + color identity** (not already in deck, other existing legality filters).
+    Independent of ownership. **No live Scryfall. No deficit-gated server backfill in
+    this mode.** Rank by score only (no owned-first).
+  - **Persistence:** remember last choice; first-ever visit = Collection; prefer
+    server-synced per-user pref, else per-user global client pref (interview #3–4).
+  - **Do not edit** ready Prompts 1–2 / Entry 5 hybrid backfill gate; Entry 6 is a later
+    pool-mode layer (interview #5).
 - Constraints: Adds-only, do not touch Cuts. Do not touch quirk #4 (`tribes: []`,
   intentional). Do not touch the `CK_REQUIRED_ENABLERS` hard gate (15 qty-weighted
-  enablers). Preserve existing top-8/owned-first sort and scoring logic within whichever
-  mode is active — this is a candidate-pool change, not a scoring change.
-- Open questions: Does "All Cards" mode need to reach beyond the local database (i.e.,
-  live Scryfall lookups), which would expand the documented "never live Scryfall" rule
-  for the Adds backfill endpoint? Unresolved — needs investigation into current local DB
-  coverage before "All Cards" mode is built out.
+  enablers). This is a candidate-pool change, not a scoring-formula change — preserve
+  existing scoring terms inside whichever mode is active. **Catalog mode sorts by score
+  only** (interview #2) — no owned-first.
+- Design interview (Entry 6):
+
+| # | Question | Decision | Design implication |
+|---|----------|----------|--------------------|
+| 1 | What is "All Cards" mode's main job? | **Local DB catalog** — open recommendations beyond owned to **all cards in the local DB** (format/CI legal). User not particular about the control's label. Closes prior open question: **not** live Scryfall / not "every printed card." | Pool = local DB ∩ format + commander color identity. Keep "never live Scryfall." Label can be "All Cards," "Catalog," etc. — decide later or leave to implementer with a sensible default. |
+| 2 | In catalog mode, does ownership affect ranking? | **A — Score only.** Ignore ownership; pure score order (top 8). | Catalog mode: disable owned-first sort / owned boost. Owned mode: ownership is the pool filter itself (no need for owned-first). |
+| 3 | Default mode when opening Adds? | **C — Remember last choice**; fallback **Collection** on first-ever visit. | Persist the toggle; first paint = Collection until the user has chosen once. |
+| 4 | Where does remembered choice live? | **D if possible, else A.** Prefer **per-user account preference synced to server**; if that isn't practical in the current app prefs system, fall back to **per-user global** client preference (still not per-deck). | Do not implement per-deck or session-only. Implementing agent: discover existing user-prefs / settings pattern; use server-backed preference when one exists for similar toggles; otherwise local persistent per-user key. |
+| 5 | Catalog candidate gathering vs Entry 5 / Prompts 1–2? | **A — Catalog = always full local pool.** Score local DB ∩ format + CI every time; no deficit-gated server backfill in Catalog. Owned = owned only, never backfills. **Do not change Prompt 1 or Prompt 2.** Entry 5 / plan-aware backfill stays as drafted for the current hybrid path until/unless Entry 6 replaces that path later. | Entry 6 is a later pool-mode layer. Prompt 1 (scoring) and Prompt 2 (wizard + Entry 5 gate on hybrid backfill) remain untouched. Catalog does not reimplement Entry 5's fetch gate. |
+| 6 | Control labels? | **C — "Collection" / "All Cards".** | UI copy: mode that restricts to owned cards = **Collection**; mode that uses full local DB = **All Cards**. Prefer these strings in the prompt (not "Owned" / "Catalog" as user-facing labels). |
+
+- Open questions (remaining): none — interview complete; prompt drafted.
 
 ### 7. Incorporate EDHREC rank into Cuts/Adds scoring
 - Status: Needs investigation
@@ -889,7 +906,7 @@ v2 hooks: `tertiaryStrategyId`, `hybridRoleModifiers`, `cutsShielding` — nulla
 
 ## Agent prompt: Entry 13 v1 — plan wizard + plan-aware backfill
 
-**Runnable copy:** Prompt **2 of 3** in
+**Runnable copy:** Prompt **2 of 4** in
 [`cuts-adds-ready-prompts.md`](./cuts-adds-ready-prompts.md)
 (twin: [`entry-13-v1-implementation-prompt.md`](./entry-13-v1-implementation-prompt.md)).
 
@@ -903,7 +920,7 @@ wizard captures that personality in structured, deterministic form for the exist
 recommendation algorithm — without AI at runtime.
 
 ### Coordinated scoring pass — entries 7 + 9 + 10 + 11 + 12
-- Status: **Prompt drafted** (2026-07-12) — **Runnable copy:** Prompt **1 of 3** in
+- Status: **Prompt drafted** (2026-07-12) — **Runnable copy:** Prompt **1 of 4** in
   [`cuts-adds-ready-prompts.md`](./cuts-adds-ready-prompts.md). Ship as **one agent task**,
   not five separate PRs. Entries 7, 9, 10, 11, 12 remain individually tracked above; this
   entry is the integration record.
@@ -1118,7 +1135,7 @@ without explicit instruction, just make sure it's on the radar. **INTENTIONAL, D
 2. **CONFIRMED BUG — Prompt drafted.** Curve bucket commander-inclusion differs:
    Cuts includes the commander in curve calc; Adds excludes it. **Adds should be changed
    to also include the commander's CMC in the curve calculation, matching Cuts.**
-   Runnable prompt: Prompt **3 of 3** in `cuts-adds-ready-prompts.md`. Do not move to
+   Runnable prompt: Prompt **3 of 4** in `cuts-adds-ready-prompts.md`. Do not move to
    archive until Status reaches **Shipped**.
 3. **FLAG ONLY — important for future work.** `_deckSwapsEnabled(deck)` is called with a
    `deck` arg in both renderers but the function takes no parameters (toggle is user-wide,
