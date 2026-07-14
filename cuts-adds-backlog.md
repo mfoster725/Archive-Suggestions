@@ -889,7 +889,7 @@ v2 hooks: `tertiaryStrategyId`, `hybridRoleModifiers`, `cutsShielding` — nulla
 
 ## Agent prompt: Entry 13 v1 — plan wizard + plan-aware backfill
 
-**Runnable copy:** Prompt **2 of 2** in
+**Runnable copy:** Prompt **2 of 3** in
 [`cuts-adds-ready-prompts.md`](./cuts-adds-ready-prompts.md)
 (twin: [`entry-13-v1-implementation-prompt.md`](./entry-13-v1-implementation-prompt.md)).
 
@@ -903,7 +903,7 @@ wizard captures that personality in structured, deterministic form for the exist
 recommendation algorithm — without AI at runtime.
 
 ### Coordinated scoring pass — entries 7 + 9 + 10 + 11 + 12
-- Status: **Prompt drafted** (2026-07-12) — **Runnable copy:** Prompt **1 of 2** in
+- Status: **Prompt drafted** (2026-07-12) — **Runnable copy:** Prompt **1 of 3** in
   [`cuts-adds-ready-prompts.md`](./cuts-adds-ready-prompts.md). Ship as **one agent task**,
   not five separate PRs. Entries 7, 9, 10, 11, 12 remain individually tracked above; this
   entry is the integration record.
