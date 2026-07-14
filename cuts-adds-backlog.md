@@ -120,7 +120,9 @@ This approach ensures that:
 ## Backlog
 
 ### 1. Adds curve calc excludes commander CMC
-- Status: **Fix scoped** (per project instructions — do not draft/execute prompt until user says start)
+- Status: **Prompt drafted** (2026-07-14) — **Runnable copy:** Prompt **3 of 3** in
+  [`cuts-adds-ready-prompts.md`](./cuts-adds-ready-prompts.md). Prefer after Prompt 1
+  (scoring rebalance); safe to parallel with Prompt 2 if curve-bucket edits don't collide.
 - Side: Adds
 - Symptom: Adds curve-gap bonus doesn't reflect the same curve Cuts sees, since Cuts includes
   commander CMC in curve buckets and Adds doesn't (decks.js:6460-6473 vs 6274)
@@ -128,7 +130,7 @@ This approach ensures that:
 - Proposed fix: include commander CMC bucket in Adds' curve calc, matching Cuts
 - Constraints: only touch the curve-bucket construction in `_computeAddContext`; don't touch
   Cuts' curve logic, don't touch other Adds scoring terms
-- Open questions: none — ready to become a prompt whenever user says go
+- Open questions: none
 
 ### 2. Plan-count token exclusion asymmetry
 - Status: Needs investigation
@@ -887,7 +889,7 @@ v2 hooks: `tertiaryStrategyId`, `hybridRoleModifiers`, `cutsShielding` — nulla
 
 ## Agent prompt: Entry 13 v1 — plan wizard + plan-aware backfill
 
-**Runnable copy:** Prompt **2 of 2** in
+**Runnable copy:** Prompt **2 of 3** in
 [`cuts-adds-ready-prompts.md`](./cuts-adds-ready-prompts.md)
 (twin: [`entry-13-v1-implementation-prompt.md`](./entry-13-v1-implementation-prompt.md)).
 
@@ -901,7 +903,7 @@ wizard captures that personality in structured, deterministic form for the exist
 recommendation algorithm — without AI at runtime.
 
 ### Coordinated scoring pass — entries 7 + 9 + 10 + 11 + 12
-- Status: **Prompt drafted** (2026-07-12) — **Runnable copy:** Prompt **1 of 2** in
+- Status: **Prompt drafted** (2026-07-12) — **Runnable copy:** Prompt **1 of 3** in
   [`cuts-adds-ready-prompts.md`](./cuts-adds-ready-prompts.md). Ship as **one agent task**,
   not five separate PRs. Entries 7, 9, 10, 11, 12 remain individually tracked above; this
   entry is the integration record.
@@ -1113,10 +1115,11 @@ without explicit instruction, just make sure it's on the radar. **INTENTIONAL, D
    math as a side effect. Adds' Plan-count filter doesn't also exclude tokens. Never
    explicitly documented as intentional — verify in actual code before treating as
    settled either way.
-2. **CONFIRMED BUG — fix directed by user.** Curve bucket commander-inclusion differs:
+2. **CONFIRMED BUG — Prompt drafted.** Curve bucket commander-inclusion differs:
    Cuts includes the commander in curve calc; Adds excludes it. **Adds should be changed
-   to also include the commander's CMC in the curve calculation, matching Cuts.** Do not
-   implement until user explicitly asks to start this work.
+   to also include the commander's CMC in the curve calculation, matching Cuts.**
+   Runnable prompt: Prompt **3 of 3** in `cuts-adds-ready-prompts.md`. Do not move to
+   archive until Status reaches **Shipped**.
 3. **FLAG ONLY — important for future work.** `_deckSwapsEnabled(deck)` is called with a
    `deck` arg in both renderers but the function takes no parameters (toggle is user-wide,
    not per-deck). Harmless today, but any code touching Adds/Cuts planning-mode behavior

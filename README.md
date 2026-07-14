@@ -13,7 +13,8 @@ Docs-only archive for the Cuts/Adds improvement work.
 ## Partner handoff (ready prompts)
 
 1. Open **`cuts-adds-ready-prompts.md`**.
-2. Run prompts **in listed order** (currently: 1 → scoring rebalance 7/9/10/11/12, then 2 → Entry 13 v1).
+2. Run prompts **in listed order** (currently: 1 → scoring rebalance 7/9/10/11/12, then
+   2 → Entry 13 v1, then 3 → Entry 1 commander CMC in Adds curve).
 3. Each prompt runs in the **main deck-builder repo** (`decks.js`), not here.
 4. After ship: move entry to archive; remove that prompt from the ready-prompts queue.
 
