@@ -15,7 +15,7 @@ Docs-only archive for the Cuts/Adds improvement work.
 1. Open **`cuts-adds-ready-prompts.md`**.
 2. Run prompts **in listed order** (currently: 1 → scoring rebalance 7/9/10/11/12, then
    2 → Entry 13 v1, then 3 → Entry 1 commander CMC in Adds curve, then 4 → Entry 6
-   Collection / All Cards toggle).
+   Collection / All Cards toggle, then 5 → Entry 2 token exclusion on Adds).
 3. Each prompt runs in the **main deck-builder repo** (`decks.js`), not here.
 4. After ship: move entry to archive; remove that prompt from the ready-prompts queue.
 

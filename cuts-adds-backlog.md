@@ -133,16 +133,56 @@ This approach ensures that:
 - Open questions: none
 
 ### 2. Plan-count token exclusion asymmetry
-- Status: Needs investigation
-- Side: Both (asymmetry between them)
-- Symptom: none observed yet directly — flagged from spec, not from a concrete bad suggestion
+- Status: **Prompt drafted** (2026-07-14) — **Runnable copy:** Prompt **5 of 5** in
+  [`cuts-adds-ready-prompts.md`](./cuts-adds-ready-prompts.md). Prefer after Prompt 2 (Entry
+  13 Plan backfill consumes Plan deficit); safe to parallel Prompt 3 if Plan-count vs curve
+  blocks don't collide in `_computeAddContext`.
+- Side: Both (asymmetry between them) — fix is **Adds-only**
+- Symptom: none observed yet directly — flagged from spec, not from a concrete bad suggestion.
+  Predicted symptom when tokens are present: Adds under-reports Plan deficit (or skips Plan
+  suggestions / Plan-only backfill) because untagged token cards inflate Adds' Plan count while
+  Cuts ignores them.
 - Suspected cause: Cuts' candidate pool excludes tokens; Adds' Plan-count filter doesn't (decks.js:6294 vs 6462)
-- Confirmed cause: not yet — need to check whether this is actually causing visible bad
-  suggestions before treating it as worth fixing
-- Proposed fix: TBD, pending investigation and a decision on which behavior is "correct"
-- Constraints: unclear whether this is intentional; do not assume it's a bug
-- Open questions: does the user have a deck where token count is high enough that this
-  would visibly change Plan-count math? Need a concrete case to justify prioritizing this.
+- Confirmed cause: **Yes at spec level** (quirk #1 + domain model). Cuts builds its candidate
+  pool as `deck cards minus commander/tokens/lands` (`_suggestCardsToCut`), so Plan-count on
+  the Cuts side only considers non-token, non-land, non-commander cards. Adds' Plan-count /
+  deficit logic (~`_computeAddContext` / ~6294) counts roleless cards without the same token
+  exclusion — any **untagged token card in the 99** is counted as Plan on Adds only. **Code
+  anchors unverified in-repo** (Archive-Suggestions has no `decks.js`; implementing agent must
+  confirm line numbers and exact filter predicate before editing).
+- Investigation notes (2026-07-14):
+  - **What "Plan" means:** cards with no utility role tag; baseline recipe target Plan 30.
+  - **Mechanism:** asymmetry is indirect on Cuts (token exclusion is a candidate-pool rule,
+    not a dedicated Plan-count rule) vs direct gap on Adds (Plan tally likely includes tokens).
+  - **Typical decks:** 0 token cards in the 99 → **no practical delta**; low priority unless
+    Entry 13 Plan-aware backfill is live and Plan deficit accuracy matters more.
+  - **Edge-case decks:** lists with Treasure / Clue / Food / Embalm / God-Eternal token copies,
+    or other token cards sitting in the mainboard. Example math: 60 utility-tagged, 5 untagged
+    tokens, 35 other untagged → Cuts Plan = 35, Adds Plan = 40 → Adds sees 5 fewer Plan deficit
+    than Cuts would imply.
+  - **Interaction with Entry 13 / 5:** once Plan-only unowned fetch ships, an inflated Adds Plan
+    count can wrongly suppress Plan backfill for token-inclusive lists.
+  - **Parallel to Entry 1:** same pattern — Cuts behavior is the reference; Adds should align.
+- Proposed fix:
+  1. **Plan-count:** Adds excludes **token cards** from Plan tally — same predicate Cuts uses
+     for its pool (`isToken` / type-line token, not oracle "creates tokens"). Touch
+     ~6294 / `_computeAddContext` Plan-count path only.
+  2. **Recommendations:** Adds candidate pool must **never** surface token cards as suggestions
+     (audit owned, catalog, and backfill paths in `_renderAddSuggestions`; enforce if missing).
+  3. **Do not conflate:** **token generators** (regular non-token cards whose abilities create
+     tokens — e.g. Parallel Lives, Young Pyromancer) remain normal candidates and normal Plan/
+     role cards. Only **token-type cards** are excluded.
+- Constraints: **Adds-only** — do not change Cuts. Use existing token detection (match Cuts).
+  Audit all Adds "deck card for recipe" tallies in Step 0 for consistent token exclusion.
+  Lands and commander already handled elsewhere. Do not use oracle text heuristics for "makes
+  tokens" — card type / existing `isToken` only.
+- Design interview (Entry 2):
+
+| # | Question | Decision | Design implication |
+|---|----------|----------|--------------------|
+| 1 | Should **token cards in the 99** count toward the Plan role tally (untagged = Plan)? | **A — No (2026-07-14).** User: tokens should **never** be in the 99 — they are byproducts of other cards' abilities/effects. Tokens should **never** be recommended. **Token generators** are different cards and must **not** be conflated with tokens. | Adds Plan-count excludes token cards (match Cuts). Adds must never recommend token cards. Token-generator spells/artifacts/creatures stay in pool and in Plan/role math normally. |
+
+- Open questions: none
 
 ### 3. `_deckSwapsEnabled(deck)` signature mismatch
 - Status: Flag only — not currently scheduled as a fix
@@ -1127,11 +1167,12 @@ Status key: **CONFIRMED BUG (fix)** = user has directed a fix. **FLAG ONLY** = d
 without explicit instruction, just make sure it's on the radar. **INTENTIONAL, DO NOT TOUCH**
 = deliberate design choice by user's partner, leave alone unless discussed.
 
-1. **FLAG ONLY, likely unintentional but unconfirmed.** Plan-count token exclusion differs:
-   Cuts' candidate pool already excludes tokens, so tokens fall out of its Plan-count
-   math as a side effect. Adds' Plan-count filter doesn't also exclude tokens. Never
-   explicitly documented as intentional — verify in actual code before treating as
-   settled either way.
+1. **CONFIRMED BUG — Prompt drafted.** Plan-count token exclusion differs: Cuts' candidate
+   pool already excludes tokens, so tokens fall out of its Plan-count math as a side effect.
+   Adds' Plan-count filter doesn't also exclude tokens, and Adds may recommend token cards.
+   **Adds should match Cuts:** exclude token cards from Plan-count; never recommend tokens.
+   Token **generators** (non-token cards) are unaffected. Runnable prompt: Prompt **5 of 5**
+   in `cuts-adds-ready-prompts.md`. Do not move to archive until Status reaches **Shipped**.
 2. **CONFIRMED BUG — Prompt drafted.** Curve bucket commander-inclusion differs:
    Cuts includes the commander in curve calc; Adds excludes it. **Adds should be changed
    to also include the commander's CMC in the curve calculation, matching Cuts.**
