@@ -23,12 +23,12 @@ explicitly intend parallel work).
 | **2** | Deck plan wizard + plan-aware backfill | 13 v1 (+ 5) | Wizard UI + plan schema + Plan-only unowned fetch. Consumes Adds scoring as-is (equal-weight Plan). Better after #1 so backfill candidates use the new score terms. |
 | **3** | Adds curve includes commander CMC | 1 | Confirmed bug: Adds curve buckets omit commander CMC; Cuts includes it. Small, isolated `_computeAddContext` fix. Prefer after #1 so C / C_eff consume the corrected curve. Safe to parallel with #2 if neither lands conflicting edits to the same curve-bucket block. |
 | **4** | Collection / All Cards pool toggle | 6 | Pool-mode UI replacing owned-first hybrid gathering. **Do not run before #2** — interview #5 keeps Prompt 2's Entry 5 hybrid backfill intact; Entry 6 is a later layer. Prefer after #1 so All Cards rankings use rebalanced scores. Safe to parallel #3 (different surface: pool vs curve buckets). |
+| **5** | Adds excludes tokens from Plan-count + never recommends tokens | 2 | Small Adds-only alignment with Cuts. Prefer after **2** (Plan deficit accuracy for Entry 13 backfill). Safe to parallel **3** if Plan-count vs curve edits in `_computeAddContext` don't collide. |
 
 ### Not in this doc yet (not Prompt drafted)
 
 | Entry | Status | Note |
 |-------|--------|------|
-| 2 | Root cause confirmed (spec); interview #1 pending | Plan-count token exclusion — Adds should likely match Cuts; see backlog Entry 2. |
 | 13 v2 / Cuts plan / hybrid modifiers | Design only | After 13 v1 ships. |
 
 ---
@@ -740,6 +740,97 @@ behaviors above. Candidate-pool change only — do not retune scoring formulas.
 - Preference persistence (server-synced per-user if possible, else per-user global)
 - Step 0 findings (anchors, prefs path chosen, Prompt 2 interaction notes)
 - Hard cases 1–5 evidenced in PR
+```
+
+---
+
+# Prompt 5 of 5 — Adds token exclusion (entry 2)
+
+```
+# Adds — exclude tokens from Plan-count; never recommend tokens (entry 2)
+
+## Context
+**Confirmed bug** (project quirk #1): Cuts excludes token cards from its candidate pool, so
+tokens never enter Plan-count math on the Cuts side. Adds' Plan-count / deficit logic does not
+mirror that exclusion, and Adds may surface token cards as suggestions.
+
+**User decision (2026-07-14):** Token cards should **never** count toward Plan and should
+**never** be recommended — tokens are byproducts of other cards' abilities, not real 99
+slots. **Token generators** (regular non-token cards that create tokens) are **different**
+and must not be conflated.
+
+Verify line anchors before editing (may have drifted):
+- Adds Plan-count / deficit logic (~decks.js:6294) in `_computeAddContext` (~6274)
+- Adds candidate pool assembly (~decks.js:6623 `_renderAddSuggestions`)
+- Cuts token exclusion (~decks.js:6254 `_suggestCardsToCut`) — **read-only reference**
+- Any shared `isToken` / card-type helper Cuts already uses
+
+## Goal
+1. **Plan-count:** Adds excludes **token cards** from Plan tally — same predicate Cuts uses.
+2. **Recommendations:** Adds must **never** recommend token cards (owned, catalog, backfill).
+3. **Token generators stay:** non-token cards that create tokens remain valid candidates and
+   normal role/Plan math.
+
+**Hard constraint:** Deterministic algorithm only — no runtime AI/LLM/ML inference.
+
+## Locked design decisions (do not re-open)
+- Match Cuts' token detection (`isToken` / type line) — **not** oracle "creates tokens" text.
+- **Adds-only** — do not change Cuts.
+- Token generators (e.g. Parallel Lives, Young Pyromancer) are **in scope as normal cards**.
+- Only **token-type cards** are excluded from Plan-count and from the Adds candidate pool.
+
+## Step 0 — Repo discovery (do first; document in PR)
+1. Locate Cuts' token exclusion predicate — reuse or share it; do not invent a second rule.
+2. Read Adds Plan-count path in `_computeAddContext` — confirm tokens are currently counted.
+3. Audit Adds candidate gathering (owned, local DB / catalog, `/api/cards/by-roles` backfill):
+   confirm whether token cards can appear today; note every path that must filter them out.
+4. Audit other Adds "deck cards for recipe" tallies — apply consistent token exclusion if any
+   other count mirrors Plan logic.
+5. Document one token card and one token-generator card from the local DB for verification.
+
+## Change
+
+### Plan-count
+1. In Adds' Plan-count / roleless-card tally, **skip token cards** using the same helper/rule
+   Cuts uses for `commander/tokens/lands` exclusion.
+2. Prefer extracting a shared `isTokenCard(card)` (or reusing existing) if duplicated.
+
+### Candidate pool
+3. Ensure **every** Adds suggestion path filters out token cards before scoring/ranking:
+   owned collection, full local DB (Entry 6 All Cards if present), and server backfill results.
+4. Filter at pool-build time (drop tokens), not only at display time.
+
+## Do NOT touch
+- Cuts scoring / Cuts candidate pool (read as reference only)
+- Token **generator** cards — must remain suggestable
+- Scoring formulas (D, M, C, L, E, B, P, V, T, K) and weights
+- Entry 13 plan wizard / plan schema (except Plan deficit now excludes tokens correctly)
+- `tribes: []`, `CK_REQUIRED_ENABLERS`
+- Live Scryfall / EDHREC scrape
+- Runtime AI/LLM
+
+## Verification
+
+### Hard (must pass)
+| # | Case | Expected |
+|---|------|----------|
+| 1 | Deck with 5 untagged **token** cards + 35 other untagged non-tokens | Adds Plan count = **35** (tokens excluded), matching Cuts-side semantics |
+| 2 | Same deck, Plan deficit active | Adds Plan deficit **≥** pre-fix (tokens no longer inflate Plan count) |
+| 3 | Adds suggestion run (any pool mode) | **No** suggested card is a token (type-line token / `isToken`) |
+| 4 | Deck with token **generator** (e.g. Parallel Lives) not in deck | Generator **can** appear in Adds suggestions when it scores highly |
+| 5 | Token generator in deck, untagged | Counts toward Plan (or role tags) like any other non-token card |
+
+### Soft (PR write-up)
+| # | Case | Expectation |
+|---|------|-------------|
+| 6 | Prompt 2 Entry 13 merged | Plan-only backfill uses corrected Plan deficit (tokens not suppressing fetch) |
+| 7 | Zero token cards in 99 | Behavior unchanged vs today |
+
+## Deliverables
+- Shared or mirrored token predicate (document anchor)
+- Plan-count fix in `_computeAddContext` (or equivalent)
+- Candidate-pool token filter on all Adds gather paths
+- Step 0 findings + hard cases 1–5 evidenced in PR
 ```
 
 ---
