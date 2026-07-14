@@ -189,25 +189,34 @@ This approach ensures that:
     practice.
 
 ### 6. Owned/All Cards toggle for Adds
-- Status: **Fix scoped** (Owned mode only — "All Cards" mode has an unresolved data-source
-  question, see Open questions; prompt drafted phases the work accordingly)
+- Status: **Needs investigation** → design interview in progress (2026-07-14). Owned behavior
+  already scoped; All Cards source locked by interview #1. Remaining: ranking, default,
+  persistence, naming, Entry 5 interaction.
 - Side: Adds
-- Symptom: n/a — feature request. User wants a toggle on the Adds panel between "Owned"
-  (only cards the user owns) and "All Cards" (all cards legal for the format and
-  commander, regardless of ownership).
-- Proposed fix: Add a UI toggle for the Adds panel with two modes:
-  - **Owned**: candidate pool is the user's owned collection only — no server backfill
-    call at all, regardless of deficit state.
-  - **All Cards**: candidate pool is every format/commander-legal card in existence,
-    independent of ownership. Exact data source TBD (see Open questions).
+- Symptom: n/a — feature request. Recommendations today are owned-focused; user wants a
+  second mode that opens the Adds pool to the local card DB (label TBD — not wedded to
+  "All Cards").
+- Proposed fix: Add a UI toggle on the Adds panel with two modes:
+  - **Owned**: candidate pool = user's owned collection only — **no** server backfill,
+    regardless of deficit state.
+  - **Catalog / "All Cards" (name TBD)**: candidate pool = format + color-identity legal
+    cards from the **local DB only** — independent of ownership. **No live Scryfall.**
 - Constraints: Adds-only, do not touch Cuts. Do not touch quirk #4 (`tribes: []`,
   intentional). Do not touch the `CK_REQUIRED_ENABLERS` hard gate (15 qty-weighted
-  enablers). Preserve existing top-8/owned-first sort and scoring logic within whichever
-  mode is active — this is a candidate-pool change, not a scoring change.
-- Open questions: Does "All Cards" mode need to reach beyond the local database (i.e.,
-  live Scryfall lookups), which would expand the documented "never live Scryfall" rule
-  for the Adds backfill endpoint? Unresolved — needs investigation into current local DB
-  coverage before "All Cards" mode is built out.
+  enablers). This is a candidate-pool change, not a scoring-formula change — preserve
+  existing scoring terms inside whichever mode is active (owned-first sort may change
+  depending on interview outcomes below).
+- Design interview (Entry 6):
+
+| # | Question | Decision | Design implication |
+|---|----------|----------|--------------------|
+| 1 | What is "All Cards" mode's main job? | **Local DB catalog** — open recommendations beyond owned to **all cards in the local DB** (format/CI legal). User not particular about the control's label. Closes prior open question: **not** live Scryfall / not "every printed card." | Pool = local DB ∩ format + commander color identity. Keep "never live Scryfall." Label can be "All Cards," "Catalog," etc. — decide later or leave to implementer with a sensible default. |
+
+- Open questions (remaining):
+  - In catalog mode, should ownership still affect **sort** (owned-first) or only the pool?
+  - Default mode on first visit?
+  - Toggle persistence (per deck / per user / session)?
+  - How catalog mode interacts with Entry 5 plan-aware unowned/server backfill?
 
 ### 7. Incorporate EDHREC rank into Cuts/Adds scoring
 - Status: Needs investigation
