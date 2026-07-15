@@ -13,11 +13,13 @@ Docs-only archive for the Cuts/Adds improvement work.
 ## Partner handoff (ready prompts)
 
 1. Open **`cuts-adds-ready-prompts.md`**.
-2. Run prompts **in listed order** (currently: 1 → scoring rebalance 7/9/10/11/12, then
-   2 → Entry 13 v1, then 3 → Entry 1 commander CMC in Adds curve, then 4 → Entry 6
-   Collection / All Cards toggle, then 5 → Entry 2 token exclusion on Adds).
+2. Run prompts **in listed order** in `cuts-adds-ready-prompts.md` (23 total). **1–5**
+   are Cuts/Adds scoring/pool (prioritized first); **6–23** are partner tag/UI/Gameplan/
+   Adds&Cuts UX prompts appended after. See that file’s order table and parallel notes.
 3. Each prompt runs in the **main deck-builder repo** (`decks.js`), not here.
-4. After ship: move entry to archive; remove that prompt from the ready-prompts queue.
+4. After ship: for backlog-linked 1–5, move entry to archive; remove that prompt from the
+   ready-prompts queue. For 6+, strike/remove from ready-prompts and note shipped in
+   archive or PR.
 
 ## Partner knowledge layer (separate, in progress)
 

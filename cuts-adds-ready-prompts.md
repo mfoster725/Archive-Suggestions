@@ -4,11 +4,14 @@
 agent that has the **main deck-builder repo** (`decks.js`). Do not run these in
 Archive-Suggestions (docs only).
 
-**Hard rule for every prompt:** Deliverable is **deterministic algorithm code** — no
-runtime AI/LLM.
+**Hard rule for every Cuts/Adds scoring prompt (1–5):** Deliverable is **deterministic
+algorithm code** — no runtime AI/LLM. Partner UI/tag prompts (6+) follow the main app’s
+existing conventions; still no runtime AI unless that prompt says otherwise.
 
 **Source backlog:** `cuts-adds-backlog.md`  
-**Closed/shipped history:** `cuts-adds-archive.md` (not for ready work)
+**Closed/shipped history:** `cuts-adds-archive.md` (not for ready work)  
+**Partner UI/tag prompts (6+):** From the 2026-07-15 partner prompt dump; not all have matching
+backlog entry IDs — treat shipped status in PR notes / archive as usual.
 
 ---
 
@@ -17,13 +20,50 @@ runtime AI/LLM.
 Run in this order. Do not start the next prompt until the previous PR is merged (or you
 explicitly intend parallel work).
 
-| Order | Prompt | Backlog entries | Why this order |
+**Priority:** Prompts **1–5** (Cuts/Adds scoring / pool) stay first — they do not depend on
+the partner tag/UI track, and later Adds & Cuts UX prompts should not rewrite scoring.
+
+**Parallel notes:** After **1** ships, **3** can parallel **2**; **6+** can start on a second
+agent if that agent avoids `_scoreAddCandidate` / threshold / plan-wizard surfaces until
+**1–5** are stable. Keep **6–9** (tag model) serialized with each other. Keep **22** (image
+re-pop) isolated from other deck-builder render PRs. **23** (user categories) last.
+
+| Order | Prompt | Track / backlog | Why this order |
 |------:|--------|-----------------|----------------|
-| **1** | Coordinated Adds scoring rebalance | 7, 9, 10, 11, 12 | Rebuilds how Adds **ranks** cards (formulas/constants). Foundation for later ranking of plan backfill. Single agent task — not five PRs. |
-| **2** | Deck plan wizard + plan-aware backfill | 13 v1 (+ 5) | Wizard UI + plan schema + Plan-only unowned fetch. Consumes Adds scoring as-is (equal-weight Plan). Better after #1 so backfill candidates use the new score terms. |
-| **3** | Adds curve includes commander CMC | 1 | Confirmed bug: Adds curve buckets omit commander CMC; Cuts includes it. Small, isolated `_computeAddContext` fix. Prefer after #1 so C / C_eff consume the corrected curve. Safe to parallel with #2 if neither lands conflicting edits to the same curve-bucket block. |
-| **4** | Collection / All Cards pool toggle | 6 | Pool-mode UI replacing owned-first hybrid gathering. **Do not run before #2** — interview #5 keeps Prompt 2's Entry 5 hybrid backfill intact; Entry 6 is a later layer. Prefer after #1 so All Cards rankings use rebalanced scores. Safe to parallel #3 (different surface: pool vs curve buckets). |
-| **5** | Adds excludes tokens from Plan-count + never recommends tokens | 2 | Small Adds-only alignment with Cuts. Prefer after **2** (Plan deficit accuracy for Entry 13 backfill). Safe to parallel **3** if Plan-count vs curve edits in `_computeAddContext` don't collide. |
+| **1** | Coordinated Adds scoring rebalance | Cuts/Adds 7, 9, 10, 11, 12 | Rebuilds how Adds **ranks** cards. Foundation for plan backfill ranking. |
+| **2** | Deck plan wizard + plan-aware backfill | Cuts/Adds 13 v1 (+ 5) | Wizard + plan schema + Plan-only unowned fetch. Better after #1. |
+| **3** | Adds curve includes commander CMC | Cuts/Adds 1 | Isolated curve-bucket fix. Prefer after #1; safe to parallel #2 if curve edits don’t collide. |
+| **4** | Collection / All Cards pool toggle | Cuts/Adds 6 | **Do not run before #2.** Prefer after #1. Safe to parallel #3. |
+| **5** | Adds excludes tokens from Plan-count + never recommends tokens | Cuts/Adds 2 | Prefer after #2 (Plan deficit for Entry 13). Safe to parallel #3 if Plan-count vs curve don’t collide. |
+| **6** | Manual Tag State Control in Card Inspector | Partner / tags | Foundation for Primary/Secondary/Default + remove/suppress. Blocks most tag consumers. |
+| **7** | Role-Tag Badge Priority Fix | Partner / tags | Badge display uses P → S → default; needs #6 model. |
+| **8** | Auto-tag primary and secondary from default tags | Partner / tags | Display fallback + “(auto)”; share resolution order with #7. |
+| **9** | Tag Modal: Remember Last Selected Tag Filter | Partner / tags | UI pref on tag modal; after toggles from #6 exist. |
+| **10** | Early Ramp CMC threshold + info popup | Partner / Gameplan | Bug fix + establish reveal-popup pattern for Gameplan. |
+| **11** | Commander Gameplan stat bullets clickable | Partner / Gameplan | Generalizes #10’s reveal pattern; resolve structural vs simulation cards first. |
+| **12** | Commander Gameplan Tag Pills & Filter | Partner / Gameplan | Needs stable P/S/D from #6–8; preserve “Land in hand”. |
+| **13** | Similarity count fix & Spicy Picks Cuts exclusion | Partner / Adds&Cuts UX | Cluster with other planning-board fixes; don’t rewrite scoring from #1. |
+| **14** | Cut button on Spicy Picks → Cuts list | Partner / Adds&Cuts UX | Same Adds/Cuts state model as #13 — run back-to-back. |
+| **15** | Adds section missing Suggested Replacements | Partner / Adds&Cuts UX | Inspector path for Adds-section cards. |
+| **16** | Adds & Cuts hover preview | Partner / Adds&Cuts UX | Reuse deck-builder hover mechanism. |
+| **17** | Card Inspector: show add/cut quantity | Partner / Adds&Cuts UX | Surface planning qty inside inspector. |
+| **18** | Add Cards popup — remember destination | Partner / Adds&Cuts UX | localStorage destination pref. |
+| **19** | Card Search Bug — “Bounty of the Hunt” | Partner / search | Isolated search/DB bug; can parallel earlier if a second agent is free. |
+| **20** | Trade window: card image opens inspector | Partner / trade | Isolated inspector wiring. |
+| **21** | Collection tab: deck membership in inspector | Partner / collection | Isolated; distinct from prompt #4 pool toggle. |
+| **22** | Deck Builder: fix card image re-pop | Partner / render | Keep isolated — render/cache investigation; don’t interleave with #13–18. |
+| **23** | User-defined deck categories | Partner / tags (large) | Last — needs settled tag model; design Qs before code. |
+
+### Deliberately excluded from this queue (do not send)
+
+| Prompt | Reason |
+|--------|--------|
+| Manual Tag Grouping / missing “Added” section cards | Partner asked to ignore (live grouping bug — separate). |
+| Fix Card Spacing in Adds & Cuts Sections | Partner asked to ignore. |
+| Post-Swap Delta on Adds & Cuts Category Headers | Partner asked to ignore. |
+| Aggro-Control Slider: Add 8 New Checkpoints | Partner asked to ignore; playstyle already documented as `∈ [−7, 7]`. |
+| Card Inspector Swipe/Arrow Navigation (Adds & Cuts order) | Partner asked to ignore. |
+| Part 1 / Part 2 Cuts/Adds technical write-up | Docs only — already covered by backlog / this file; not an implement prompt. |
 
 ### Not in this doc yet (not Prompt drafted)
 
@@ -38,12 +78,13 @@ explicitly intend parallel work).
 1. Open the **main app repo** (partner) in Cursor / cloud agent.
 2. Copy **one** fenced prompt block below (start at `# …` inside the fence).
 3. Paste into the agent. Say start / implement.
-4. After merge, mark that backlog entry **Shipped** and move full write-up to
-   `cuts-adds-archive.md`; remove or strike that prompt from this file.
+4. After merge: for backlog-linked prompts (1–5), mark that backlog entry **Shipped** and
+   move full write-up to `cuts-adds-archive.md`; remove or strike that prompt from this
+   file. For partner prompts (6+), strike/remove here and note shipped in archive or PR.
 
 ---
 
-# Prompt 1 of 4 — Coordinated Adds scoring rebalance (entries 7 / 9 / 10 / 11 / 12)
+# Prompt 1 of 23 — Coordinated Adds scoring rebalance (entries 7 / 9 / 10 / 11 / 12)
 
 ```
 # Adds scoring rebalance — entries 7, 9, 10, 11, 12 (single coordinated pass)
@@ -244,7 +285,7 @@ term logs (off in normal production UX). Soft cases use logs + PR notes.
 
 ---
 
-# Prompt 2 of 4 — Entry 13 v1 + Entry 5 (plan wizard + plan-aware backfill)
+# Prompt 2 of 23 — Entry 13 v1 + Entry 5 (plan wizard + plan-aware backfill)
 
 Canonical twin file (keep in sync): [`entry-13-v1-implementation-prompt.md`](./entry-13-v1-implementation-prompt.md)
 
@@ -534,7 +575,7 @@ Log inference scores, chip actions, fieldSources, planMatchScore, budget filter 
 
 ---
 
-# Prompt 3 of 4 — Adds curve includes commander CMC (entry 1)
+# Prompt 3 of 23 — Adds curve includes commander CMC (entry 1)
 
 ```
 # Adds curve — include commander CMC (entry 1)
@@ -620,7 +661,7 @@ Step 0.
 
 ---
 
-# Prompt 4 of 4 — Collection / All Cards pool toggle (entry 6)
+# Prompt 4 of 23 — Collection / All Cards pool toggle (entry 6)
 
 ```
 # Adds pool toggle — Collection / All Cards (entry 6)
@@ -744,7 +785,7 @@ behaviors above. Candidate-pool change only — do not retune scoring formulas.
 
 ---
 
-# Prompt 5 of 5 — Adds token exclusion (entry 2)
+# Prompt 5 of 23 — Adds token exclusion (entry 2)
 
 ```
 # Adds — exclude tokens from Plan-count; never recommend tokens (entry 2)
@@ -835,4 +876,571 @@ Verify line anchors before editing (may have drifted):
 
 ---
 
-*End of ready-prompts catalog. Add new Prompt drafted items here in queue order; remove when Shipped.*
+# Prompt 6 of 23 — Manual Tag State Control in Card Inspector
+
+```
+# Manual Tag State Control in Card Inspector
+
+## Context
+Tags on a card have three states — Default (algorithm-assigned), Primary (manual),
+Secondary (manual). Users can also manually add tags themselves, separate from the
+algorithm’s assignments.
+
+## Goal
+Add manual tag state control to the card inspector.
+- Click/tap a tag: Default → Primary. Primary → Secondary. Secondary → reverts to Default
+  (clears manual override; algorithm assignment restored — or removed if the algorithm
+  doesn’t currently assign that tag).
+- Long-press (mobile) / right-click (desktop): context menu with Primary, Secondary,
+  Default, and Remove. Remove expands to:
+  - Remove manual override — same as Default; clears manual state and falls back to what
+    the algorithm currently assigns (tag disappears if algorithm doesn’t assign it, or if
+    it was a user-added tag with no algorithmic backing).
+  - Remove entirely — deletes the tag from the card and suppresses the algorithm from
+    re-adding it until/unless the user re-adds it manually.
+- A card can have multiple Primary tags and multiple Secondary tags simultaneously —
+  no singular constraint.
+- No visual/styling changes — existing Default/Primary/Secondary treatment stays as-is.
+  Interaction/state logic only.
+
+## Before implementing — ask if unclear
+- Is there already an endpoint and/or table for card tags, or does this need a new one?
+  Check the codebase and report findings; if ambiguous, ask before schema/route decisions.
+- If “Remove entirely” suppression needs new state (e.g. per-card exclusion list), confirm
+  whether that model already exists or must be created.
+- If this needs a new/modified client API call via apiFetch/apiPut/apiPatch/apiDelete/
+  apiPostJson and auth failure handling isn’t covered nearby, ask how to handle it (or
+  match the nearest existing caller).
+- If anything else about the current tag implementation is ambiguous, ask before building.
+
+Follow project conventions: vanilla JS, escapeHtml(), existing modal/inspector patterns.
+After JS changes: npm run build:bundle and commit dist/bundle.js. Commit style:
+Area: imperative summary.
+```
+
+---
+
+# Prompt 7 of 23 — Role-Tag Badge Priority Fix
+
+```
+# Role-Tag Badge Priority Fix
+
+## Goal
+Update the role-tag badge selection logic so the single badge shown per card follows:
+
+1. A manually-set primary tag. If more than one primary, use whichever is listed first.
+2. If no primary, a manually-set secondary tag. If more than one, use first listed.
+3. If neither exists, fall back to current default-tag logic (first-listed if multiple).
+
+Find the existing code that chooses which tag badge to render on a card (collection and
+deck views) and update it to this hierarchy only — do not change how tags are stored,
+added, or removed.
+
+## Before making changes, confirm
+- Where primary vs secondary vs default are distinguished in the data model. If that
+  distinction doesn’t exist, ask before inventing schema.
+- Whether “first listed” means creation order, existing sort order, or array order from
+  the DB — ask if unambiguous from code.
+- If this requires new/changed client API calls, ask about auth failures unless a nearby
+  caller already establishes the pattern.
+- If anything else about tag data or rendering is unclear, ask before implementing.
+
+Prereq: Prefer Prompt 6 (manual tag state) already merged or confirmed present.
+After JS changes: npm run build:bundle; commit dist/bundle.js.
+```
+
+---
+
+# Prompt 8 of 23 — Auto-tag primary and secondary from default tags
+
+```
+# Auto-tag primary and secondary from default tags
+
+## Context
+Tag system: Default / Primary / Secondary with click cycling and context menu. Today a
+card only shows primary or secondary if the user manually set one.
+
+## Fix requirements
+- If no manually set primary but ≥1 default tag: treat the **first** default as primary
+  for **display only** — do not write manual Primary into storage.
+- If no manually set secondary but ≥2 default tags: treat the **second** default as
+  secondary the same way.
+- Does not override real manual primary/secondary.
+- When shown via this fallback, append “(auto)” after the tag label in the pill.
+
+## Investigation / confirmation before building
+- Where default tags are stored and in what order; whether “first”/“second” is already
+  defined or needs a tiebreaker.
+- If algorithm assigns defaults with no stable order, ask whether to introduce one.
+- Confirm whether clicking an auto-filled pill promotes it to a real manual state (and
+  “(auto)” disappears) — match existing cycle behavior unless told otherwise.
+
+## Verification
+- Card with ≥2 defaults, no manual P/S → first two show as primary/secondary with “(auto)”.
+- Manual primary, no manual secondary → auto-secondary still applies.
+- Clicking auto pill converts to real manual and removes “(auto)”.
+- npm run build:bundle; commit dist/bundle.js if js/ changed.
+
+Prereq: Prefer Prompts 6–7 so badge and cycle share one resolution order.
+```
+
+---
+
+# Prompt 9 of 23 — Tag Modal: Remember Last Selected Tag Filter
+
+```
+# Tag Modal: Remember Last Selected Tag Filter
+
+## Context
+Card inspector tag editing modal has four toggles: “All tags,” “Default tags,”
+“Apply as primary,” “Apply as secondary.” They reset every open today.
+
+## Fix
+- Persist last-selected toggle state in localStorage (mtg_snake_case key; UI pref only).
+- Global preference — not per-card / per-oracle-id.
+- On open for any card, restore last-saved state instead of hardcoded default.
+- Update preference whenever the user changes the toggle.
+- Reuse existing modal/button state logic — no parallel mechanism.
+
+## Confirmation before building
+- If “All/Default” and “Apply as primary/secondary” are two independent groups, ask whether
+  both should be remembered independently or only one group.
+- If the modal intentionally resets on open for a reason, flag before persisting.
+
+## Verification
+- Change toggle on card A, open tag modal on card B → same state restored.
+- Survives full page reload.
+- No disturbance to assignment / tier cycling / filtering.
+- npm run build:bundle; commit dist/bundle.js.
+
+Prereq: Prefer Prompt 6 so the modal toggles exist as described.
+```
+
+---
+
+# Prompt 10 of 23 — Early Ramp CMC threshold + info popup
+
+```
+# Fix/Verify Early Ramp CMC Threshold + Add Info Popup to Commander Gameplan
+
+## Context
+In Commander Gameplan, “early ramp” may undercount (e.g. “Xyris Snakes” by
+manfordf@gmail.com showing 2). Possible causes: wrong CMC cutoff (fixed vs scaled to
+commander CMC), and/or ramp tagging/identification failures.
+
+## Investigate root cause first
+- Check commander CMC + decklist ground truth vs the code path that computes the stat.
+- Don’t assume which bug; it may be one, the other, or both.
+
+## If threshold needs fixing
+Early ramp threshold = commander’s CMC − 2.
+Any ramp card with CMC ≤ that threshold counts as early ramp.
+Examples: CMC 5 commander → ramp ≤ 3; CMC 6 → ramp ≤ 4.
+Watch edge cases (threshold ≤ 0) — floor at 0 or 1 and document reasoning.
+If threshold is already correct, don’t rewrite it; focus on tagging and/or the popup.
+
+## New feature (always): info popup on Early Ramp
+Add an “i” info icon next to Early Ramp. Click opens a popup explaining:
+- What “early ramp” means in plain terms
+- Formula with this deck’s numbers (e.g. “Commander CMC: 5 → ramp CMC ≤ 3”)
+- Ideally the counted cards (name + CMC), and if feasible CMC-eligible-but-not-tagged
+
+Conventions: existing modal pattern; inline SVG line icon (fill="none"
+stroke="currentColor"), never emoji; escapeHtml() on dynamic text; CSS custom properties;
+Cinzel / Crimson Pro / JetBrains Mono per project typography; template-literal/innerHTML.
+Follow existing info-popup patterns if any.
+
+After changes: npm run build:bundle; commit dist/bundle.js; npm run changelog:add
+(do not edit CHANGELOG.md).
+```
+
+---
+
+# Prompt 11 of 23 — Commander Gameplan stat bullets clickable
+
+```
+# Make Commander Gameplan Stat Bullets Clickable to Reveal Contributing Cards
+
+## Goal
+In Commander Gameplan (Pre-curve and On-curve), each bulleted stat line should be
+clickable. Click reveals which specific cards count toward that stat.
+
+## Do
+1. Locate Gameplan render + calculation; identify where contributing cards are (or would
+   be) determined.
+2. Make each bullet row clickable via existing inline onclick="fn(...)" pattern / new
+   global, with ids for which stat + deck context.
+3. Show contributing cards in existing modal patterns; escapeHtml() names;
+   cardThumbAttrs(card, view) thumbnails.
+4. Style with existing CSS vars / .panel / .tag / .btn — no hardcoded colors.
+5. npm run build:bundle; commit dist/bundle.js.
+
+## Ask before building
+Does “which cards count” mean:
+(a) every deck card that structurally satisfies the condition, or
+(b) cards that came up in the simulation runs behind the percentage?
+These imply different implementations. Also flag if the calc currently only outputs a
+percentage (no card refs) and ask whether extending the calc is in scope.
+
+Prereq: Prefer Prompt 10 so Early Ramp popup pattern can be reused.
+```
+
+---
+
+# Prompt 12 of 23 — Commander Gameplan Tag Pills & Filter
+
+```
+# MTG Archive — Commander Gameplan Tag Pills & Filter
+
+Follow established vanilla-JS conventions exactly (no frameworks/ES modules, template
+innerHTML, escapeHtml(), .tag/.filter-chip/.panel, CSS custom properties, inline SVG).
+
+## Task
+In Commander Gameplan Custom section:
+1. Requirement pills must reflect **all tags used in the deck**, not a partial/hardcoded
+   subset.
+2. Add a filter dropdown near the pills: All Tags / Default Tags / Primary Tags /
+   Secondary Tags. Match existing filter-dropdown/filter-chip patterns.
+
+## Constraints
+- Do not break unrelated gameplan logic/scoring/rendering.
+- Preserve “Land in hand” pill special-case behavior exactly — do not fold it into generic
+  tag-pill logic if that would change behavior.
+- Only add pills/filtering — don’t remove/restructure unrelated Custom-section elements.
+- Match camelCase ids, kebab-case classes, -- CSS variables, no hardcoded colors.
+- After js/ changes: npm run build:bundle; commit dist/bundle.js.
+
+## Before writing code
+Investigate Default/Primary/Secondary modeling and pill generation. If unclear (or “Land
+in hand” rules unclear), ask before changing.
+
+Prereq: Prefer Prompts 6–8 so Primary/Secondary filter modes are meaningful.
+```
+
+---
+
+# Prompt 13 of 23 — Similarity count fix & Spicy Picks Cuts exclusion
+
+```
+# Deck Builder: Similarity Count Fix & Spicy Picks Cuts Exclusion
+
+Two Adds & Cuts planning-board issues:
+
+## Issue 1 — Similarity container not counting Adds
+- Locate similarity container logic; identify card-count source.
+- Locate Adds list state; why Adds aren’t included.
+- Fix so Adds are counted without breaking Cuts / main deck counting.
+- Avoid double-counting if a card exists in both main deck and Adds.
+
+## Issue 2 — Spicy Picks showing cards in Cuts
+- Locate Spicy Picks generation/filter; exclude any card present in Cuts.
+- Confirm identity key: scryfall_id vs oracle_id vs uid (_f/_n).
+- Don’t break existing Spicy scoring/sorting (including CMC factors if any).
+
+## Conventions
+Vanilla JS, camelCase globals, _ private helpers, escapeHtml(), CSS custom properties,
+existing UI primitives. No frameworks/TS/ES modules.
+
+## Before changes — ask if unclear
+- Adds/Cuts state shape; whether similarity counts total vs unique vs weighted; foil
+  distinctions; where Spicy candidate pool is sourced today.
+
+## After
+- npm run build:bundle; commit dist/bundle.js with source.
+- Relevant npm test scripts if validation/format touched.
+- Commit style: Deck builder: <imperative summary> (one commit per issue or combined).
+- npm run changelog:add for user-visible fixes.
+
+Do not rewrite Suggested Adds/Cuts **scoring formulas** from Prompts 1–5.
+```
+
+---
+
+# Prompt 14 of 23 — Cut button on Spicy Picks → Cuts list
+
+```
+# Cut Button on Spicy Picks Should Move Cards to the Cuts List
+
+## Context
+In Adds & Cuts, Spicy Picks suggestions that are currently in-deck have a “-” button.
+Clicking it should move the card from “in deck” to the “cuts” list on the planning board.
+
+## Task
+Locate Spicy Picks + Adds & Cuts render/handlers (likely js/decks.js). Confirm how in-deck
+vs cuts state is tracked/persisted. Update “-” so it moves the card into cuts using
+existing save() / state-update patterns — no new persistence mechanism.
+
+Ask before implementing if current “-” behavior, storage of in-deck/cuts, or post-move UI
+refresh is ambiguous.
+
+Prereq: Prefer Prompt 13 so Cuts identity/filtering is settled.
+After: npm run build:bundle; commit dist/bundle.js as needed.
+```
+
+---
+
+# Prompt 15 of 23 — Adds section missing Suggested Replacements
+
+```
+# Adds Section Missing Suggested Replacements
+
+## Bug
+Card inspector shows “Suggested Replacements” for in-deck cards, but not when opened from
+the Adds & Cuts **Adds** section. It should appear there too.
+
+## Before code — confirm cause
+1. Where inspector decides to render suggested replacements.
+2. Trace open-from-Adds vs open-from-in-deck; what context differs.
+3. Confirm whether logic works but isn’t invoked, vs needs new Adds-context logic.
+Do not assume — read both paths first.
+
+## Fix
+Targeted: Adds-section cards get the same suggested-replacements section using existing
+logic/rendering — no second implementation. If Adds card data lacks what’s needed, stop
+and ask. Don’t change already-working in-deck behavior.
+
+After: npm run build:bundle; commit with source; npm test; npm run changelog:add.
+Commit: Adds & Cuts: <imperative summary>.
+```
+
+---
+
+# Prompt 16 of 23 — Adds & Cuts hover preview
+
+```
+# Adds & Cuts: fix card hover preview to match deck builder behavior
+
+## Context
+Desktop deck builder: hover card thumbnail → large preview stays tied to that card.
+Adds & Cuts board is missing or broken for the same behavior.
+
+## Task
+1. Locate deck-builder hover-preview functions/CSS (cardThumbAttrs / shared helper) and
+   how it’s wired (listeners, attributes, CSS).
+2. Apply the **same** mechanism to Adds & Cuts thumbnails — do not invent a parallel
+   preview system.
+3. If Adds & Cuts render path can’t cleanly share the helper without duplication, ask
+   before proceeding.
+
+Ask any markup/structure clarifying questions before changing.
+After: npm run build:bundle; commit dist/bundle.js if js/ changed.
+```
+
+---
+
+# Prompt 17 of 23 — Card Inspector: show add/cut quantity
+
+```
+# Card Inspector: Show Add/Cut Quantity Without Closing
+
+## Context
+Adds & Cuts can mark quantity > 1 for adds/cuts. Qty is visible on the board but not
+inside the open inspector — user must close the modal to see it.
+
+## Investigate first
+How add/cut qty is stored/rendered on the board; whether inspector already has that
+state when opened; missing data vs missing UI.
+
+## Fix
+Reuse existing qty data + badge/tag/count patterns. Show indicator in inspector only when
+add or cut count > 1. JetBrains Mono for numbers; CSS custom properties; no hardcoded hex.
+Don’t alter modal for cards without multi-copy add/cut. Don’t touch unrelated board/modal
+behavior.
+
+## Ask before building
+- Placement in inspector layout if not obvious.
+- Whether add+cut can apply to one card simultaneously (mutually exclusive?) — affects label.
+
+## Verification
+Multi-copy add and multi-copy cut match board; single/no qty leaves modal unchanged.
+After: rebuild/commit if needed.
+```
+
+---
+
+# Prompt 18 of 23 — Add Cards popup remember destination
+
+```
+# Add Cards Popup — Remember Last Selected Destination Container
+
+## Investigate first
+Find add-cards popup; locate destination control (deck vs adds); confirm element id and
+where default (“deck”) is set.
+
+## Task
+Remember last-selected destination; pre-select on next open.
+- Persist with localStorage, mtg_snake_case key (UI pref — not save()/apiFetch).
+- Store the option **value string**, not an index.
+- If stored value is among current options, select it; else fall back to “deck”.
+- Update stored value on selection change (not only submit), including close-without-add.
+- Reuse existing remembered-pref patterns in this or similar popups.
+
+If control isn’t a simple dropdown or partial persistence already exists, ask before
+proceeding.
+
+After: npm run build:bundle; commit dist/bundle.js with source.
+```
+
+---
+
+# Prompt 19 of 23 — Card Search Bug — “Bounty of the Hunt”
+
+```
+# Card Search Bug — "Bounty of the Hunt" Not Found in Deck Builder
+
+## Bug
+Searching “Bounty of the Hunt” in deck-builder add flow returns no results though the
+card should exist in Scryfall / local data.
+
+## Investigate and fix root cause
+Trace end to end: client search → apiFetch wrappers (js/db-client.js) → server route →
+scryfall_oracle_cards mirror and/or /api/scryfall/* proxy. Check name normalization,
+DFC/split handling, whether the card exists in the mirror, filtering (legality, type,
+etc.), and whether this is one card vs broader search bug. Confirm failure point with
+logging or direct DB/API queries before patching — no speculative special-case for one card.
+
+Conventions: vanilla JS, escapeHtml(), cardToEntry(), no direct browser calls to
+api.scryfall.com.
+
+After: build:bundle if js/ changed; relevant npm test if engine/scanner touched;
+changelog:add if user-visible. Ask if scope/expected behavior is unclear.
+```
+
+---
+
+# Prompt 20 of 23 — Trade window: card image opens inspector
+
+```
+# Trade window: card image opens inspector
+
+## Goal
+In the trade builder modal, clicking a card **thumbnail image** opens the card inspector
+for that card in You Give, You Receive, Cards They Want, and Suggested for Their Decks.
+Only the image — quantity, condition, remove, and row background keep current behavior.
+
+## Investigate
+Find row rendering (shared helper vs separate paths); existing click handlers; existing
+inspector open fn and expected args (scryfall_id / uid / card).
+
+## Fix
+Image-only click → existing inspector. stopPropagation if row has its own handler.
+Reuse existing inspector — no second implementation.
+
+## Confirm before building
+If four sections use different render paths, implement per path and confirm that’s OK
+rather than forced shared-renderer refactor. Flag row-level select handlers that would
+conflict with stopPropagation.
+
+## Verification
+Thumbnail opens correct card in all four sections; other controls unaffected.
+```
+
+---
+
+# Prompt 21 of 23 — Collection tab: deck membership in inspector
+
+```
+# Collection Tab: Show Deck Membership In Card Inspector
+
+## Goal
+When opening inspector from Collection, if the card is in one or more decks, list those
+decks (and copy count when > 1).
+
+## Investigate
+Collection-context inspector path; what data is already loaded vs needs fetch; whether
+matching uses scryfall_id or oracle_id elsewhere — follow existing convention. Reuse any
+existing “used in deck(s)” UI if present.
+
+## Fix
+Scoped to Collection-tab inspector context when possible. Reuse tag/chip/list/panel-row
+markup. Don’t alter deck-builder / Adds & Cuts inspector unless the shared renderer can’t
+be conditional without duplication.
+
+## Ask before building
+- Printing vs oracle matching if unclear.
+- Commander decks: same list vs flag “Commander” when the card is the designated commander.
+- Layout slot if no obvious place.
+
+## Verification
+Zero decks / one deck one copy / multi-copy / multiple decks. No regressions from other
+inspector entry points.
+```
+
+---
+
+# Prompt 22 of 23 — Deck Builder: fix card image re-pop
+
+```
+# Deck Builder: Fix Card Image Re-pop on Inspector Exit and Scroll
+
+## Context
+Leaving card inspector or scrolling bottom→top in deck builder causes thumbnail images to
+“pop in” / reload (empty flash then image). Confirmed mobile; check desktop. Fix the
+underlying cause, not only these two triggers.
+
+## Investigate
+Trace cardThumbAttrs and list/grid re-render on inspector close and scroll. Full
+innerHTML replace vs toggle? Lazy-load / intersection observer? Other triggers (tab,
+sort, resize)? Don’t assume network reload vs CSS/DOM flash.
+
+## Fix
+At the source so no re-render/re-observe path forces reload/flash. Reuse existing
+render/cache mechanisms. Skip if investigation shows behavior is already correct and
+the issue is elsewhere.
+
+## Ask before building
+If root cause ambiguous (cache vs re-render vs lazy-load), ask. If other triggers found,
+confirm they’re in scope.
+
+## Verification
+Inspector exit + bottom→top scroll no visible pop-in on mobile and desktop if testable.
+No unrelated deck-builder regressions (sort/filter/hover).
+
+Keep this PR isolated from Prompts 13–18 render churn.
+```
+
+---
+
+# Prompt 23 of 23 — User-defined deck categories
+
+```
+# User-Defined Deck Categories with Tag-Based Auto-Assignment
+
+## Context
+Layer user-defined categories on top of the existing tag system (do not replace tags).
+Built-in tags are broad/occasionally wrong; different decks need different org.
+
+## Investigate first
+Tag flow end to end (schema, overrides card vs deck, Adds & Cuts + Gameplan Custom
+consumers, tag editor UI placement). Client vs server matching. Source of the **global**
+tag list for the category dropdown (not deck- or collection-scoped).
+
+## Feature requirements
+- User-defined categories: reusable user-wide list; per-deck select; “custom” typed option
+  if nothing fits (Archidekt-like spirit).
+- Dropdown options = complete global tag set in the app.
+- Category management control **next to** existing tags control in deck builder.
+- Deck shows only categories selected for it.
+- Auto-place cards into active categories from existing tags.
+- Manual override from card inspector scoped to that deck’s deck_cards row only — never
+  leaks across decks.
+
+## Ask before writing code (open design)
+- Global categories table + per-deck join, vs simpler per-deck rows from the start?
+- Tag→category mapping configured per category (X/Y/Z tags), or 1:1 name equality given
+  categories sourced from the global tag list?
+- Can a card appear in more than one category, or exclusive placement?
+
+## Verification
+Persist via save()/apiFetch across reload; global dropdown identical regardless of deck;
+override isolation; Adds & Cuts + Gameplan Custom OK with zero custom categories (fallback
+to existing tag behavior); control sits beside tags UI with existing styling.
+npm run build:bundle; commit dist/bundle.js if js/ changed.
+
+Prereq: Prompts 6–8 (and ideally 12) settled so tag categories don’t thrash a changing model.
+```
+
+---
+
+*End of ready-prompts catalog (23 prompts). Add new Prompt drafted items here in queue
+order; remove when Shipped.*
